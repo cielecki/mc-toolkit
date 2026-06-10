@@ -1,0 +1,28 @@
+# ── macOS ──
+.DS_Store
+
+# ── Python / Node build junk (match at any depth) ──
+__pycache__/
+*.pyc
+.venv/
+node_modules/
+
+# ── Per-user customization (NEVER committed) ──
+# Each skill ships config.example.json (committed) + reads config.local.json (yours).
+# This is how a generic public skill carries personal paths/labels/language without
+# hardcoding them. Copy the example, fill in your values, never push it.
+**/config.local.json
+
+# ── Local runtime data, biometric & secret artifacts — NEVER committed ──
+# Output transcripts, snapshot mirrors, enrolled voiceprints (biometric), tokens.
+data/
+auth/
+**/voiceprints/
+*.npy
+*.m4a
+*.wav
+**/.env
+**/.env.*
+**/token.json
+**/*token*.json
+**/credentials*.json

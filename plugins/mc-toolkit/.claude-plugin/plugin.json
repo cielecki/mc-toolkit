@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "mc-toolkit",
+  "displayName": "MC Toolkit",
+  "version": "0.1.0",
+  "description": "Open-source, reusable Claude Code skills with a local customization layer",
+  "author": {
+    "name": "Maciej Cielecki"
+  },
+  "license": "MIT",
+  "keywords": ["skills", "voice", "transcription", "local", "toolkit"]
+}

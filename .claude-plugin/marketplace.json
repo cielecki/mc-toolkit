@@ -1,0 +1,23 @@
+{
+  "name": "mc-toolkit",
+  "owner": {
+    "name": "Maciej Cielecki"
+  },
+  "metadata": {
+    "description": "Open-source Claude Code skills — the public cut of Maciej's personal toolkit",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "mc-toolkit",
+      "source": "./plugins/mc-toolkit",
+      "description": "Reusable, generic Claude Code skills with a local customization layer",
+      "author": {
+        "name": "Maciej Cielecki"
+      },
+      "license": "MIT",
+      "keywords": ["skills", "voice", "transcription", "local", "toolkit"],
+      "category": "productivity"
+    }
+  ]
+}
