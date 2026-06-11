@@ -1,8 +1,8 @@
 ---
 name: voicememos
 description: Sync Apple Voice Memos into local, speaker-labeled transcripts. Reads the TCC-protected Voice Memos container via a Full-Disk-Access snapshot app, transcribes each recording locally with mlx-whisper + silero-VAD, diarizes with pyannote, and labels a known speaker from an enrolled voiceprint — one folder per memo. All local/offline. Use for "/voicememos", "sync my voice memos", "transcribe my voice memos", "pobierz notatki głosowe", "zsynchronizuj voice memos", "kto to mówił w nagraniu", or to enroll/identify a voice. Do NOT use for live mic recording, audio files that aren't Apple Voice Memos.
-version: 1.0.0
-date: 2026-06-10
+version: 1.1.0
+date: 2026-06-11
 allowed-tools: Bash, Read, Write, Edit
 ---
 
@@ -63,11 +63,17 @@ degrades gracefully to plain diarization.
 
 - **Solo memo** → `--num-speakers 1` (no diarization needed).
 - **2–4 clean speakers** → local `community-1` (default; near-cloud on clean audio).
-- **Messy / phone / overlapping / far-field** → cloud engine `assemblyai.py` (universal-2,
-  speaker_labels, ~$0.37/audio-hr). On long noisy phone calls it clearly beat the local
-  pipeline on BOTH transcription and diarization. Run under the venv for `--label`
-  (voiceprint → known speaker / unknown label): `~/.venvs/diarization/bin/python assemblyai.py audio.m4a --label --out transcript_aai.md`.
-  (pyannoteAI `precision-2` is an alternative local-API swap in `diarize.py` if ever needed.)
+- **Messy / phone / overlapping / far-field** → cloud engine. Measured on Polish
+  phone-call + solo clips (eval 2026-06-11, small n): on phone clips ElevenLabs ~10
+  mean WER, OpenAI ~17, local whisper ~21, AssemblyAI ~29 (its VAD silently drops
+  quiet/narrowband segments — use `--loudnorm`, which cut one clip 46.7→34.9 WER); on
+  clean solo clips AssemblyAI ≈ ElevenLabs (~6) ≈ openai-mini (~8) beat local whisper
+  (~13–19). Caveat: gpt-4o-transcribe CLEANS speech (drops fillers/false starts),
+  which inflates its WER vs verbatim references. So cloud beats local on quality, but
+  **privacy decides the engine** (next section). AssemblyAI usage:
+  `~/.venvs/diarization/bin/python assemblyai.py audio.m4a --label --out transcript_aai.md`
+  (universal-2, speaker_labels, ~$0.37/audio-hr; venv needed for `--label`
+  voiceprint → names).
 
 ## Privacy — sensitive recordings stay LOCAL
 
@@ -82,8 +88,14 @@ non-sensitive audio, the cloud is self-cleaning so there's no per-use chore:
   (default; audio is auto-deleted post-transcription anyway). `--keep-cloud` opts out.
   So nothing lingers on their servers — no manual delete, no email.
 - **`elevenlabs.py` canNOT auto-delete** (STT isn't API-deletable on a standard account)
-  and ElevenLabs retains by default → **prefer AssemblyAI for the cloud tier**; only use
-  Scribe for a one-off where you accept the retention.
+  and ElevenLabs retains by default → only use Scribe for a one-off where you accept
+  the retention (it is, however, the measured quality leader on phone audio).
+- **`openai.py` has the best cloud privacy defaults**: OpenAI does NOT train on API
+  data and auto-deletes after ≤30 days (abuse monitoring) — no opt-out, no cleanup.
+  Trade-off: the quality models (gpt-4o-transcribe/-mini) return text only — speakers
+  need the local pyannote pass. `--model gpt-4o-transcribe-diarize` adds built-in
+  speakers but measurably worse text (phone ~30 vs mini ~17 mean WER) — convenience,
+  not a quality pick.
 - **One-time** (not per-use): opt out of training on each service (AssemblyAI email
   data-opt-out@…; ElevenLabs toggle or a GDPR request to legal@elevenlabs.io). Forward-looking.
 
@@ -97,24 +109,49 @@ computes WER/CER per engine vs hand-corrected references:
 1. `eval.py --prepare <clip.m4a> --engine elevenlabs [--language en]` → drafts
    `<clip>.ref.txt` + registers it.
 2. **Hand-correct** the draft against the audio, every word (never trust an engine's raw
-   output as ground truth — it biases the eval). Set `profile` AND `language` in
+   output as ground truth — it biases the eval). References may be speaker-labeled
+   (`MC: ` / `ANNA: ` turn-per-paragraph; WER strips the labels, and they double as
+   speaker-attribution ground truth). Set `profile` AND `language` in
    `<data-dir>/eval/clips.json` — if you record in multiple languages, forcing the
    wrong one mangles the transcript (an English memo whisper'd with `pl` lost half its
-   words). **Same caveat for sync**: sync.py uses `VOICEMEMOS_LANG` (default `en`).
+   words). sync.py defaults to per-memo auto-detection (`VOICEMEMOS_LANG=auto`,
+   detected once on the longest speech segment; stored in meta.json).
 3. Repeat for ~6 clips: `solo-clean` / `meeting-clean` / `phone-noisy` × 2.
-4. `eval.py` → markdown WER/CER table (Polish-normalized, keeps diacritics) per engine × profile.
+4. `eval.py` → markdown table per engine × profile: WER strict + WER lenient (ignores
+   filler/repeat style) + CER (all Polish-aware normalized, keeps diacritics).
+   Hypotheses cache under `<data-dir>/eval/hyps/` — re-scoring is free and uploads
+   nothing; `--fresh` re-runs engines. **Cloud engines are stochastic**: run-to-run
+   swings up to ~20 WER pts on a single clip (measured) — treat single-run single-clip
+   differences <~10 pts as noise; only local whisper is deterministic. Average several
+   `--fresh` runs before trusting a close call.
 
-Engines compared: `whisper-large-v3` / `whisper-turbo` (local), `assemblyai`, `elevenlabs`.
+Engines compared: `whisper-large-v3` / `whisper-turbo` (local), `assemblyai`,
+`elevenlabs`, `openai` / `openai-mini` / `openai-diarize`.
 Methodology + the research behind it: `references/quality-research.md`.
+
+## Clean transcript (optional, derived)
+
+On request ("make a clean version") — or when a memo feeds a downstream deliverable —
+generate `transcript_clean.md` next to `transcript.md` via a subagent (zero marginal
+cost). Rules for the subagent:
+- Fix obvious ASR mishears from context; use names from `meta.json` (`speakers`,
+  title) and the user's domain glossary.
+- MAY drop fillers and false starts, fix punctuation, merge into readable paragraphs
+  per speaker turn. May NOT summarize, drop substantive content, or reorder. Mark
+  guesses `[?]`.
+- `transcript.md` (verbatim) stays the source of truth — the clean file is a derived
+  rendering. Measured: LLM post-editing improves WER only ~1 pt (it can't recover
+  what ASR never heard) — this step is for READABILITY, not accuracy.
 
 ## Output contract
 
 ```
 <data-dir>/<YYYY-MM-DD>-<slug>/
-├── transcript.md     # metadata block + ---, then **Speaker** [MM:SS] turns
-├── meta.json         # title, date, duration, source path, speaker map
-├── data.json         # labeled words — lets render.py restyle transcript.md instantly
-└── audio.m4a         # the recording (copied from the snapshot)
+├── transcript.md         # metadata block + ---, then **Speaker** [MM:SS] turns
+├── transcript_clean.md   # optional, derived — LLM-cleaned readable version (see above)
+├── meta.json             # title, date, duration, language (auto-detected), source path, speaker map
+├── data.json             # labeled words — lets render.py restyle transcript.md instantly
+└── audio.m4a             # the recording (copied from the snapshot)
 ```
 
 ## Files
@@ -124,7 +161,9 @@ Methodology + the research behind it: `references/quality-research.md`.
 - `scripts/snapshot_trigger.sh` — triggers the FDA app, freshness-gated
 - `scripts/transcribe.py` — local STT: mlx-whisper large-v3 + silero-VAD (python3.14 env)
 - `scripts/assemblyai.py` — cloud engine (AssemblyAI) for messy/phone audio → transcript_aai.md
-- `scripts/elevenlabs.py` — cloud engine (ElevenLabs Scribe), lead Polish/phone engine → transcript_el.md
+- `scripts/elevenlabs.py` — cloud engine (ElevenLabs Scribe), measured phone-quality leader → transcript_el.md
+- `scripts/openai.py` — cloud engine (OpenAI gpt-4o-transcribe family), best cloud privacy defaults
+- `scripts/eval.py` — WER/CER harness: hand-corrected references, strict+lenient WER, hypothesis cache
 - `scripts/diarize.py` — pyannote diarization + word→speaker overlap (nearest-turn fallback)
 - `scripts/speaker_id.py` — voiceprint embeddings + match; narrowband detection + per-condition threshold
 - `scripts/enroll.py` (`--phone-aug` multi-condition) / `scripts/identify.py` — CLIs over `speaker_id`

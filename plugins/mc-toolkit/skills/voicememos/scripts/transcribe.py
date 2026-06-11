@@ -110,6 +110,22 @@ def main():
 
     import mlx_whisper
     pad = int(PAD_S * SR)
+
+    if language == "auto":
+        # detect ONCE on the longest speech segment (most signal), lock for the whole
+        # memo — per-segment detection flip-flops on short utterances. Forcing the
+        # wrong language mangles the transcript (an English memo forced to pl lost
+        # half its words and translated the rest).
+        longest = max(ranges, key=lambda r: r["end"] - r["start"])
+        s = max(0, longest["start"] - pad)
+        e = min(len(a), longest["end"] + pad)
+        probe = mlx_whisper.transcribe(
+            af[s:e], path_or_hf_repo=MODEL, language=None, verbose=False,
+            condition_on_previous_text=False,
+        )
+        language = probe.get("language") or "en"
+        print(f"language auto-detected: {language}", file=sys.stderr)
+
     words = []
     for rng in ranges:
         s = max(0, rng["start"] - pad)
@@ -141,6 +157,7 @@ def main():
     print(json.dumps({
         "words": words,
         "text": " ".join(w["text"] for w in words),
+        "language": language,
         "_engine": "whisper-local",
     }, ensure_ascii=False))
 

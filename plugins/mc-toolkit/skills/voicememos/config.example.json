@@ -1,7 +1,7 @@
 {
   "_comment": "Copy to config.local.json and edit. config.local.json is gitignored. Secrets (HF_TOKEN, ASSEMBLYAI_API_KEY, ELEVENLABS_API_KEY) go in ~/.claude/.env, not here.",
   "VOICEMEMOS_DATA": "~/voicememos",
-  "VOICEMEMOS_LANG": "en",
+  "VOICEMEMOS_LANG": "auto",
   "VOICEMEMOS_MLX_PYTHON": "/opt/homebrew/bin/python3.14",
   "VOICEMEMOS_VENV_PYTHON": "~/.venvs/diarization/bin/python",
   "VOICEMEMOS_UNKNOWN_LABEL": "unknown"

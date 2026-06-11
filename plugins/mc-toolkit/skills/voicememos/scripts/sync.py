@@ -193,8 +193,10 @@ def main():
         log(f"  → {rec['title']} ({rec['duration_s']:.0f}s)")
         try:
             shutil.copy2(rec["audio"], os.path.join(outdir, "audio.m4a"))
+            # default "auto": detect language per memo — forcing the wrong one
+            # mangles the transcript (half the words dropped, rest translated)
             words_obj = run_json([MLX_PY, os.path.join(HERE, "transcribe.py"),
-                                  rec["audio"], "--language", cfg("VOICEMEMOS_LANG", "en")])
+                                  rec["audio"], "--language", cfg("VOICEMEMOS_LANG", "auto")])
             wpath = os.path.join(outdir, "_words.json")
             json.dump(words_obj, open(wpath, "w"), ensure_ascii=False)
             ident = run_json([VENV_PY, os.path.join(HERE, "identify.py"),
@@ -202,6 +204,7 @@ def main():
             words = ident["words"]
             write_transcript_md(os.path.join(outdir, "transcript.md"), rec, words)
             meta = {**{k: rec[k] for k in ("id", "title", "date", "duration_s", "audio_local")},
+                    "language": words_obj.get("language"),
                     "speakers": ident.get("speakers"), "speaker_map": ident.get("mapping"),
                     "source_path": rec["audio"]}
             json.dump(meta, open(os.path.join(outdir, "meta.json"), "w"),

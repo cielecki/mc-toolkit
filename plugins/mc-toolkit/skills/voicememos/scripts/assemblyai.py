@@ -95,15 +95,31 @@ def main():
     ap.add_argument("--keep-cloud", action="store_true",
                     help="do NOT auto-delete the transcript from AssemblyAI afterwards "
                          "(default deletes it for privacy — audio is auto-deleted regardless)")
+    ap.add_argument("--loudnorm", action="store_true",
+                    help="loudness-normalize (ffmpeg loudnorm) before upload — "
+                         "AssemblyAI's VAD silently DROPS quiet/narrowband phone "
+                         "segments (measured: skipped the first 20s of a call; "
+                         "loudnorm cut WER 46.7→34.9). Use for phone recordings.")
     args = ap.parse_args()
     if not os.path.exists(args.audio):
         sys.exit(f"audio not found: {args.audio}")
 
     log("⚠️  uploads audio to AssemblyAI (cloud) — NOT for sensitive recordings. "
         "See references/privacy-research.md (default retention/training; delete after).")
+    audio = args.audio
+    if args.loudnorm:
+        import subprocess
+        import tempfile
+        audio = tempfile.NamedTemporaryFile(suffix=".m4a", delete=False).name
+        log("AssemblyAI: loudness-normalizing…")
+        r = subprocess.run(["ffmpeg", "-y", "-v", "quiet", "-i", args.audio,
+                            "-af", "loudnorm=I=-16:TP=-1.5",
+                            "-c:a", "aac", "-b:a", "128k", audio])
+        if r.returncode != 0:
+            sys.exit("ffmpeg loudnorm failed")
     k = key()
     log("AssemblyAI: uploading…")
-    url = upload(k, args.audio)
+    url = upload(k, audio)
     log("AssemblyAI: transcribing (universal-2, speaker_labels, "
         f"{args.language})…")
     tid = create(k, url, args.language)
