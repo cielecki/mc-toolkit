@@ -117,13 +117,18 @@ def main():
         # memo — per-segment detection flip-flops on short utterances. Forcing the
         # wrong language mangles the transcript (an English memo forced to pl lost
         # half its words and translated the rest).
+        # verbose=None (NOT False): with language=None, whisper prints
+        # "Detected language: …" to STDOUT unless verbose is None — which corrupts
+        # the JSON contract of this script. redirect_stdout is the safety belt.
+        import contextlib
         longest = max(ranges, key=lambda r: r["end"] - r["start"])
         s = max(0, longest["start"] - pad)
         e = min(len(a), longest["end"] + pad)
-        probe = mlx_whisper.transcribe(
-            af[s:e], path_or_hf_repo=MODEL, language=None, verbose=False,
-            condition_on_previous_text=False,
-        )
+        with contextlib.redirect_stdout(sys.stderr):
+            probe = mlx_whisper.transcribe(
+                af[s:e], path_or_hf_repo=MODEL, language=None, verbose=None,
+                condition_on_previous_text=False,
+            )
         language = probe.get("language") or "en"
         print(f"language auto-detected: {language}", file=sys.stderr)
 
