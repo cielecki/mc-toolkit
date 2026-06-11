@@ -15,6 +15,7 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from _config import cfg
 
 from sync import write_transcript_md  # main() is __main__-guarded, safe to import
