@@ -70,7 +70,16 @@ degrades gracefully to plain diarization.
   clean solo clips AssemblyAI ≈ ElevenLabs (~6) ≈ openai-mini (~8) beat local whisper
   (~13–19). Caveat: gpt-4o-transcribe CLEANS speech (drops fillers/false starts),
   which inflates its WER vs verbatim references. So cloud beats local on quality, but
-  **privacy decides the engine** (next section). AssemblyAI usage:
+  **privacy decides the engine** (next section).
+- **NOTE (2026-06-14): the local-whisper numbers above are PRE-FIX.** They were measured
+  with the old per-VAD-fragment pipeline, which starved whisper of context and roughly
+  DOUBLED Polish WER. `transcribe.py` now transcribes VAD-grouped ~28 s contiguous windows
+  ("vadwin"): mean WER on the gold clips dropped **24.4 → 11.7**, and on hard real-world
+  audio (gym/car) divergence-vs-gpt-4o **44 → 34**. Same model (large-v3) — pure config.
+  So local is now meaningfully closer to cloud, but on genuinely hard audio cloud still
+  wins. Tested & rejected: `initial_prompt`/glossary (HURTS — repetition loops),
+  whisper-turbo and Parakeet-TDT-0.6b-v3 (both worse on PL; Parakeet emitted NOTHING on
+  the noisy car clip). Detail: `eval/results-2026-06-14-local-quality.md`. AssemblyAI usage:
   `~/.venvs/diarization/bin/python assemblyai.py audio.m4a --label --out transcript_aai.md`
   (universal-2, speaker_labels, ~$0.37/audio-hr; venv needed for `--label`
   voiceprint → names).

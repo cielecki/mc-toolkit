@@ -8,10 +8,15 @@ out to it for `--engine whisper` (free, offline; no AssemblyAI spend).
 Pipeline:
   1. ffmpeg-decode the audio to 16 kHz mono int16.
   2. silero-VAD finds speech segments. This is ESSENTIAL: mlx-whisper hallucinates
-     plausible text on long silent stretches between spoken comments. We transcribe
-     ONLY the speech segments, so silence is never fed to Whisper.
-  3. Per speech segment: mlx-whisper with word_timestamps, then offset each word's
-     time by the segment's absolute start so timestamps stay in WHOLE-AUDIO space.
+     plausible text on long silent stretches between spoken comments. We feed Whisper
+     ONLY speech, so silence is never transcribed.
+  3. Group adjacent VAD speech into ~28 s windows and transcribe each window as ONE
+     CONTIGUOUS audio slice (NOT segment-by-segment). Whisper needs sentence-scale
+     context — feeding it isolated sub-second VAD fragments roughly DOUBLED Polish WER
+     (measured 2026-06-14: per-fragment 24.4 vs windowed 11.7 mean WER on the eval set,
+     and on hard real-world audio 44→34 vs the gpt-4o-transcribe target). The slice is
+     contiguous, so word timestamps offset linearly by the slice start (diarization needs
+     real-audio time); long silence BETWEEN windows is still skipped (anti-hallucination).
   4. Emit JSON {"words":[{text,start,end,speaker,confidence}]} — the same shape
      transcribe-run.py consumes from AssemblyAI, in MILLISECONDS. No speaker
      labels (local STT can't diarize) → speaker=None.
@@ -38,6 +43,8 @@ SR = 16000
 # Override per-run with VOICEMEMOS_WHISPER_MODEL (the eval harness compares models).
 MODEL = os.environ.get("VOICEMEMOS_WHISPER_MODEL", "mlx-community/whisper-large-v3-mlx")
 PAD_S = 0.15  # keep 150ms around each speech segment so word edges aren't clipped
+WIN_S = 28.0  # group VAD speech into <=28s windows — whisper's native context window is
+              # 30s; sentence-scale context is what fixes the Polish word mangling
 
 # mlx-whisper still emits YouTube-outro / subtitle-credit boilerplate on borderline
 # audio even after VAD (documented in CLAUDE.md + voice-mode notes). Drop any
@@ -132,16 +139,37 @@ def main():
         language = probe.get("language") or "en"
         print(f"language auto-detected: {language}", file=sys.stderr)
 
-    words = []
+    # Group adjacent VAD speech into <=WIN_S contiguous windows. We extend a window
+    # while its real-audio span (last.end − group.start) fits WIN_S, then start a new
+    # one — so internal short pauses are KEPT (they give whisper context) but the long
+    # dead air between groups is dropped. Each group is one contiguous real-audio slice,
+    # so a single linear offset maps every word back to whole-audio time for diarization.
+    win = int(WIN_S * SR)
+    groups, gs, ge = [], None, None
     for rng in ranges:
         s = max(0, rng["start"] - pad)
         e = min(len(a), rng["end"] + pad)
+        if gs is None:
+            gs, ge = s, e
+        elif e - gs <= win:
+            ge = e
+        else:
+            groups.append((gs, ge))
+            gs, ge = s, e
+    if gs is not None:
+        groups.append((gs, ge))
+
+    words = []
+    for s, e in groups:
         seg = af[s:e]
         if len(seg) < SR * 0.1:  # <100ms — nothing to transcribe
             continue
+        # condition_on_previous_text left at whisper's default (True): cross-window
+        # context helps Polish (measured), and the compression-ratio / avg-logprob gates
+        # in _drop_segment catch the repetition loops that conditioning can trigger.
         res = mlx_whisper.transcribe(
             seg, path_or_hf_repo=MODEL, language=language, verbose=False,
-            condition_on_previous_text=False, word_timestamps=True,
+            word_timestamps=True,
         )
         offset_ms = (s / SR) * 1000.0
         for seg_obj in res.get("segments", []):
