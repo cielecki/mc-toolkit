@@ -90,7 +90,7 @@ def clock(seconds):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("audio")
-    ap.add_argument("--language", default=cfg("VOICEMEMOS_LANG", "en"))
+    ap.add_argument("--language", default=cfg("VOICEMEMOS_LANG", "auto"))
     ap.add_argument("--label", action="store_true")
     ap.add_argument("--out")
     ap.add_argument("--keep-cloud", action="store_true",

@@ -21,6 +21,9 @@ import os
 import subprocess
 import sys
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from _config import cfg
+
 ENDPOINT = "https://api.openai.com/v1/audio/transcriptions"
 
 
@@ -87,7 +90,7 @@ def clock(seconds):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("audio")
-    ap.add_argument("--language", default="pl")
+    ap.add_argument("--language", default=cfg("VOICEMEMOS_LANG", "auto"))
     ap.add_argument("--model", default="gpt-4o-transcribe",
                     help="gpt-4o-transcribe | gpt-4o-mini-transcribe | whisper-1 | "
                          "gpt-4o-transcribe-diarize (segments with speakers)")

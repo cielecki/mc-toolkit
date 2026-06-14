@@ -105,7 +105,7 @@ def main():
     if len(sys.argv) < 2:
         sys.exit("usage: whisper_words.py <audio_path> [--language pl]")
     path = sys.argv[1]
-    language = cfg("VOICEMEMOS_LANG", "en")
+    language = cfg("VOICEMEMOS_LANG", "auto")
     if "--language" in sys.argv:
         language = sys.argv[sys.argv.index("--language") + 1]
 

@@ -97,7 +97,7 @@ def lenient(t):
     return " ".join(out)
 
 
-def hyp_text(engine, audio, lang="pl", fresh=False):
+def hyp_text(engine, audio, lang=cfg("VOICEMEMOS_LANG", "auto"), fresh=False):
     """Return an engine's plain transcript text, cached under eval/hyps/ so
     re-scoring (new metric, new normalization) is free and re-uploads nothing.
     --fresh forces a re-run."""
@@ -232,7 +232,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--prepare", metavar="AUDIO", help="draft a reference for a clip")
     ap.add_argument("--engine", default="elevenlabs", help="engine for --prepare")
-    ap.add_argument("--language", default="pl", help="2-letter clip language for --prepare")
+    ap.add_argument("--language", default=cfg("VOICEMEMOS_LANG", "auto"), help="2-letter clip language for --prepare")
     ap.add_argument("--engines", help="comma list for --run (default: all)")
     ap.add_argument("--fresh", action="store_true",
                     help="ignore cached hypotheses in eval/hyps/ and re-run engines")
