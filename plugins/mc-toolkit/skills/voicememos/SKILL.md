@@ -75,6 +75,18 @@ degrades gracefully to plain diarization.
   (universal-2, speaker_labels, ~$0.37/audio-hr; venv needed for `--label`
   voiceprint → names).
 
+## OpenAI engine — duration limits + chunking (long Voice Memos)
+
+`openai.py` handles one file, but `sync.py` uses LOCAL whisper — to transcribe a long
+memo via OpenAI you drive `openai.py` per chunk yourself. Hard limits hit live
+(2026-06-14, 62-min trainer session + 30-min lecture):
+- **`gpt-4o-transcribe` / `-mini`: max 1400 s/file** (error `audio duration … longer than 1400 seconds`). Chunk to ≤1200 s.
+- **`gpt-4o-transcribe-diarize`: 1400 s nominal, but on chunks ≳600 s the curl returns EMPTY (server-side timeout) — looks like a corrupt-file / JSON-decode error, not a clear message.** Chunk diarize to **≤600 s** and add a curl retry (`--max-time` + 2-3 attempts on empty stdout).
+- **All endpoints: 25 MB upload cap.** Re-encode first — `ffmpeg -i in.qta -ac 1 -ar 16000 -b:a 32k out.mp3` (mono 16 kHz ~32 kbps) takes a 250 MB `.qta` to ~15 MB with zero ASR loss.
+- **`language` is a HINT, not a hard force** — `gpt-4o-transcribe` with `language=pl` still transcribes English passages correctly (bilingual memos survive). Probe a 60 s slice to detect language before committing.
+- **Diarize cross-chunk labels are NOT stable** (each chunk re-assigns A/B/C…; also over-splits 2 speakers into 4-5). For a 2-person memo, attribute by CONTENT, not the letter labels.
+- **`.qta`** is the Voice Memos container extension for edited/long recordings — ffmpeg reads it fine.
+
 ## Privacy — sensitive recordings stay LOCAL
 
 The local pipeline (whisper + pyannote + wespeaker) is **fully on-device** — audio never
