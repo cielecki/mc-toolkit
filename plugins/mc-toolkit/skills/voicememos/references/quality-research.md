@@ -64,6 +64,32 @@ NVIDIA Streaming Sortformer (local, ≤4 spk) is a strong local upgrade option
 use the cloud engine's OWN diarization** (one API call) rather than running local diarization on
 degraded audio.
 
+**Measured (2026-06-15) — local community-1 MERGES 2 close-mic speakers on hard audio, and
+the count hint is the wrong lever.** On a 180 s gym clip (2 speakers, movement, overlap),
+`identify.py` auto-detect collapsed both into ONE cluster. Findings:
+- The merge is a **clustering** failure, NOT an ASR one — it happens in AHC before any
+  word assignment, so the mc-stt transcription work is orthogonal. Don't touch the ASR to
+  fix diarization.
+- `--num-speakers 2` DID separate them (2 clusters) — but is **fragile** (you rarely know
+  the count for an arbitrary memo). `--min-speakers 1 --max-speakers 4` (bounded auto)
+  **still merged to 1** — measured. So **bounds do NOT fix under-merging** (max bound still
+  allows 1; auto-count within bounds still picks 1).
+- **Root-cause, count-free fix = the clustering threshold** (`pipeline.instantiate({"clustering":
+  {"threshold": X}})`): too high → merges, too low → splits. Lowering/calibrating it fixes the
+  merge WITHOUT a known count. **Not yet exposed in `diarize.py` — TODO: add the knob + a
+  one-time calibration on a few hand-labeled hard clips.** (`--threshold` today is the
+  *cosine voiceprint-match* threshold, a different thing.)
+- For genuinely hard audio, prefer a **count-estimating model** over threshold tuning: NME-SC
+  eigengap (NeMo), or end-to-end **Sortformer**/EEND (predict variable count + handle overlap).
+- **Swift voice-mode rewrite → FluidAudio** (`FluidInference/FluidAudio`, ANE, Apache-2.0): on-
+  device diarization (pyannote-community-1 Core ML, ~10.6% DER AMI) with `numClusters` auto-
+  estimation AND `enrollSpeaker` voiceprints. The Hex dictation app uses it (for Parakeet ASR).
+  Python bridge exists (**Senko**, `narcotic-sh/senko`) but its embeddings are English/Mandarin-
+  tuned + noise-sensitive — not a fit for hard Polish.
+- Real-world note: long multi-speaker memos already route through **cloud diarize**
+  (gpt-4o-transcribe-diarize) per the chunking workflow, so they're unaffected — the local
+  merge bites only when local diarization runs on hard 2-4-speaker audio.
+
 Speaker-ID — the 0.99→0.75 cosine drop is the documented codec-mismatch failure. SVeritas
 (EMNLP 2025) https://aclanthology.org/2025.findings-emnlp.516.pdf : codec+narrowband+noise sharply
 raise EER; **ECAPA-TDNN, MFA-Conformer, RedimNet most robust; WavLM worst; wespeaker mid**.
