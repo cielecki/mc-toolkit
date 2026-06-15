@@ -47,11 +47,16 @@ right runtime for free by just shelling out to `mc-stt`.
 
 | Caller | Repo | Status |
 |---|---|---|
-| voicememos (sync + eval + cloud scripts) | mc-toolkit | **in scope** — verified via eval WER |
-| summarize-anything | mc-setup (`mc`) | follow-up (one-liner recipe → `mc-stt`) |
-| messaging/whatsapp transcribe-audio | mc-setup (`mc`) | follow-up |
-| space-survivor-ios whisper_words.py | apps/space-survivor-ios | follow-up (low value — game telemetry) |
+| voicememos local (transcribe.py → shim) | mc-toolkit | ✅ done — eval WER identical, sync/eval untouched |
+| voicememos cloud scripts + eval cloud engines | mc-toolkit | ⏳ still call own openai/elevenlabs/assemblyai.py (not duplicated elsewhere → low pressure) |
+| summarize-anything | mc-setup (`mc`) | ✅ done — recipe → `mc-stt`, manual chunking dropped |
+| messaging/whatsapp transcribe-audio | mc-setup (`mc`) | ✅ done — recipe → `mc-stt` |
+| space-survivor-ios whisper_words.py | apps/space-survivor-ios | ✅ done — thin shim over `mc-stt --model turbo` (couples that repo to PATH `mc-stt`) |
 | **voice-mode** | mc-setup (`mc`) | **EXCLUDED** — Swift rewrite in progress (do not touch) |
+
+All LOCAL-whisper callers now route through one engine. Remaining is optional: cloud
+engines in mc-stt (no current duplication to remove — single copy in voicememos) + the
+warm-server Phase 2.
 
 ## Build order (additive, regression-gated)
 
