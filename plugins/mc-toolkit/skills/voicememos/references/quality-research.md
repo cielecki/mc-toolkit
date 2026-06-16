@@ -81,6 +81,14 @@ the count hint is the wrong lever.** On a 180 s gym clip (2 speakers, movement, 
   *cosine voiceprint-match* threshold, a different thing.)
 - For genuinely hard audio, prefer a **count-estimating model** over threshold tuning: NME-SC
   eigengap (NeMo), or end-to-end **Sortformer**/EEND (predict variable count + handle overlap).
+- **UPDATE 2026-06-16 — Sortformer SHIPPED as the Python DEFAULT, not just a Swift idea.**
+  It turned out end-to-end Sortformer runs locally in Python on Metal via **`mlx-audio`**
+  (model `mlx-community/diar_sortformer_4spk-v1-fp16`) — so `sortformer_diarize.py` is now the
+  default diarizer (`VOICEMEMOS_DIAR_ENGINE`, `diarize.py`/pyannote = fallback). On the gym clip
+  pyannote merged, Sortformer found 2 (validated 5/5 speaker-count across solo/phone/gym after a
+  <2 s phantom filter), named Maciej correctly, ~1000× faster. So the "good local diarization is
+  Swift-only" framing below is OUTDATED for Python — FluidAudio remains the Swift-rewrite path,
+  but Python is no longer stuck with pyannote.
 - **Swift voice-mode rewrite → FluidAudio** (`FluidInference/FluidAudio`, ANE, Apache-2.0): on-
   device diarization (pyannote-community-1 Core ML, ~10.6% DER AMI) with `numClusters` auto-
   estimation AND `enrollSpeaker` voiceprints. The Hex dictation app uses it (for Parakeet ASR).
