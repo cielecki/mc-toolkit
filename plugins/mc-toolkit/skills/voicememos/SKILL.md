@@ -38,7 +38,8 @@ that archive (audio retained ~30 days). See `CLAUDE.md`.
    Full Disk Access). This is what lets the FDA-less sync read the protected container.
 2. **HF gated model** — `HF_TOKEN` in `~/.claude/.env`, and accept terms once for
    [pyannote/speaker-diarization-community-1](https://huggingface.co/pyannote/speaker-diarization-community-1).
-3. **pyannote venv** (if missing): `python3.10 -m venv ~/.venvs/diarization && ~/.venvs/diarization/bin/pip install "pyannote.audio>=4.0"`.
+3. **pyannote venv** (if missing): `python3.10 -m venv ~/.venvs/diarization && ~/.venvs/diarization/bin/pip install "pyannote.audio>=4.0"`. (Used for the voiceprint-naming step always, and for diarization when `VOICEMEMOS_DIAR_ENGINE=pyannote`.)
+4. **mlx-audio** (for the default Sortformer diarizer): `/opt/homebrew/bin/python3.14 -m pip install --break-system-packages mlx-audio`. The MLX Sortformer model auto-downloads on first run.
 
 ## Commands
 
@@ -61,8 +62,19 @@ degrades gracefully to plain diarization.
 
 ## Diarization accuracy tiers
 
-- **Solo memo** → `--num-speakers 1` (no diarization needed).
-- **2–4 clean speakers** → local `community-1` (default; near-cloud on clean audio).
+**Default local diarizer = NVIDIA Sortformer (end-to-end, via mlx-audio)** since 2026-06-16
+(`VOICEMEMOS_DIAR_ENGINE=sortformer`). It predicts the speaker count NATIVELY (no
+`--num-speakers` hint, no clustering threshold), handles overlap, runs on Metal in
+~0.1–0.2 s/clip (vs pyannote-on-CPU's minutes), and **separates close-mic speakers that
+pyannote MERGED** — on a 2-speaker gym clip pyannote collapsed to 1, Sortformer correctly
+found 2 (validated 5/5 speaker-count across solo/phone/gym clips after a <2 s phantom
+filter), and the cleaner separation also let the voiceprint step correctly name Maciej
+where pyannote's merged clusters had failed. Caps at 4 speakers (fine for memos). Set
+`VOICEMEMOS_DIAR_ENGINE=pyannote` to fall back to the clustering pipeline. `sortformer_diarize.py`
+runs in the mlx env and emits turns; `identify.py --turns` (venv) does naming + word assignment.
+
+- **Solo memo** → either backend is trivially correct (Sortformer returns 1; pyannote `--num-speakers 1`).
+- **2–4 speakers** → Sortformer (default) — best on close-mic/overlap; pyannote `community-1` is the fallback.
 - **Messy / phone / overlapping / far-field** → cloud engine. Measured on Polish
   phone-call + solo clips (eval 2026-06-11, small n): on phone clips ElevenLabs ~10
   mean WER, OpenAI ~17, local whisper ~21, AssemblyAI ~29 (its VAD silently drops
@@ -185,7 +197,8 @@ cost). Rules for the subagent:
 - `scripts/elevenlabs.py` — cloud engine (ElevenLabs Scribe), measured phone-quality leader → transcript_el.md
 - `scripts/openai.py` — cloud engine (OpenAI gpt-4o-transcribe family), best cloud privacy defaults
 - `scripts/eval.py` — WER/CER harness: hand-corrected references, strict+lenient WER, hypothesis cache
-- `scripts/diarize.py` — pyannote diarization + word→speaker overlap (nearest-turn fallback)
+- `scripts/sortformer_diarize.py` — DEFAULT diarizer: end-to-end NVIDIA Sortformer (mlx-audio, mlx env) → turns; native speaker count, fast on Metal
+- `scripts/diarize.py` — fallback diarizer: pyannote clustering + word→speaker overlap (`VOICEMEMOS_DIAR_ENGINE=pyannote`)
 - `scripts/speaker_id.py` — voiceprint embeddings + match; narrowband detection + per-condition threshold
 - `scripts/enroll.py` (`--phone-aug` multi-condition) / `scripts/identify.py` — CLIs over `speaker_id`
 - `references/fda-setup.md`, `references/quality-research.md`, `references/VoiceMemosSnapshot.applescript`
