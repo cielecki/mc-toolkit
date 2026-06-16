@@ -44,6 +44,10 @@ OUT = DATA
 STATE_PATH = os.path.join(DATA, "state.json")
 MLX_PY = cfg("VOICEMEMOS_MLX_PYTHON", "/opt/homebrew/bin/python3.14")
 VENV_PY = cfg("VOICEMEMOS_VENV_PYTHON", "~/.venvs/diarization/bin/python", expand=True)
+# Diarization backend: "sortformer" (default — end-to-end NVIDIA Sortformer via mlx-audio,
+# predicts speaker count natively, ~1000x faster than pyannote-on-CPU, separates close-mic
+# speakers pyannote merges; caps at 4 speakers) or "pyannote" (the clustering pipeline).
+DIAR_ENGINE = cfg("VOICEMEMOS_DIAR_ENGINE", "sortformer")
 CORE_DATA_EPOCH = 978307200  # 2001-01-01 UTC in unix seconds
 
 
@@ -200,8 +204,18 @@ def main():
                                   rec["audio"], "--language", cfg("VOICEMEMOS_LANG", "auto")])
             wpath = os.path.join(outdir, "_words.json")
             json.dump(words_obj, open(wpath, "w"), ensure_ascii=False)
-            ident = run_json([VENV_PY, os.path.join(HERE, "identify.py"),
-                              rec["audio"], "--words", wpath], cwd=HERE)
+            id_cmd = [VENV_PY, os.path.join(HERE, "identify.py"),
+                      rec["audio"], "--words", wpath]
+            tpath = None
+            if DIAR_ENGINE == "sortformer":
+                # end-to-end Sortformer runs in the mlx env → turns; identify.py (venv)
+                # does voiceprint naming + word assignment on those turns via --turns.
+                turns_obj = run_json([MLX_PY, os.path.join(HERE, "sortformer_diarize.py"),
+                                      rec["audio"]])
+                tpath = os.path.join(outdir, "_turns.json")
+                json.dump(turns_obj, open(tpath, "w"), ensure_ascii=False)
+                id_cmd += ["--turns", tpath]
+            ident = run_json(id_cmd, cwd=HERE)
             words = ident["words"]
             write_transcript_md(os.path.join(outdir, "transcript.md"), rec, words)
             meta = {**{k: rec[k] for k in ("id", "title", "date", "duration_s", "audio_local")},
@@ -216,6 +230,8 @@ def main():
                        "words": words}, open(os.path.join(outdir, "data.json"), "w"),
                       ensure_ascii=False)
             os.remove(wpath)
+            if tpath and os.path.exists(tpath):
+                os.remove(tpath)
             state[rec["id"]] = {"done": True, "date": rec["date"], "out": outdir}
             done += 1
         except Exception as e:

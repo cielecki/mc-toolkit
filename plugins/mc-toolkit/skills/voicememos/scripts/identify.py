@@ -39,6 +39,10 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("audio")
     ap.add_argument("--words")
+    ap.add_argument("--turns",
+                    help="precomputed turns JSON ({turns:[{start,end,speaker}]} in seconds, "
+                         "e.g. from sortformer_diarize.py) — skips the local pyannote pass and "
+                         "does naming + word assignment on these instead")
     ap.add_argument("--threshold", type=float, default=sid.DEFAULT_THRESHOLD)
     ap.add_argument("--num-speakers", type=int)
     ap.add_argument("--min-speakers", type=int)
@@ -53,10 +57,17 @@ def main():
     if not os.path.exists(args.audio):
         sys.exit(f"Audio not found: {args.audio}")
 
-    turns = dz.diarize(args.audio, token=token,
-                       num_speakers=args.num_speakers, min_speakers=args.min_speakers,
-                       max_speakers=args.max_speakers, exclusive=not args.no_exclusive)
-    sid.log(f"identify: {len(turns)} turns, {dz.n_speakers(turns)} anon cluster(s)")
+    if args.turns:
+        # precomputed turns (e.g. Sortformer, which runs in the mlx env) — skip pyannote
+        raw = json.load(open(args.turns))
+        turns = raw["turns"] if isinstance(raw, dict) and "turns" in raw else raw
+        sid.log(f"identify: {len(turns)} turns from --turns "
+                f"({raw.get('_engine', 'precomputed') if isinstance(raw, dict) else 'precomputed'})")
+    else:
+        turns = dz.diarize(args.audio, token=token,
+                           num_speakers=args.num_speakers, min_speakers=args.min_speakers,
+                           max_speakers=args.max_speakers, exclusive=not args.no_exclusive)
+        sid.log(f"identify: {len(turns)} turns, {dz.n_speakers(turns)} anon cluster(s)")
 
     mapping = sid.identify_turns(args.audio, turns, threshold=args.threshold,
                                  unknown_label=args.unknown_label, token=token)

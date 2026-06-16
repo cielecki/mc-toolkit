@@ -20,9 +20,10 @@ snapshot_trigger.sh  → VoiceMemosSnapshot.app (FDA) rsyncs the container local
    │
 CloudRecordings.db   → enumerate recordings (title, folder, date, duration, m4a path)
    │  per new/changed recording:
-   ├─ transcribe.py  (mlx-whisper + silero-VAD, python3.14)   → words[] (ms)
-   ├─ diarize.py     (pyannote community-1, CPU)              → speaker turns[]
-   └─ identify.py    (match clusters to enrolled voiceprints) → known speaker / unknown
+   ├─ transcribe.py        (mlx-whisper + silero-VAD, mlx env)    → words[] (ms)
+   ├─ sortformer_diarize.py (Sortformer end-to-end, mlx env)      → speaker turns[]  [DEFAULT]
+   │   (or diarize.py — pyannote community-1, CPU venv — when VOICEMEMOS_DIAR_ENGINE=pyannote)
+   └─ identify.py          (match turns to enrolled voiceprints)  → known speaker / unknown
    │
 write <data-dir>/<date>-<slug>/{transcript.md, meta.json, audio.m4a}
 ```
@@ -33,13 +34,18 @@ write <data-dir>/<date>-<slug>/{transcript.md, meta.json, audio.m4a}
 ## Two Python environments (kept separate on purpose)
 
 - **mlx env** = `/opt/homebrew/bin/python3.14` (`VOICEMEMOS_MLX_PYTHON`) — `mlx-whisper`,
-  `silero-vad`, `torch`. Runs `transcribe.py`. MLX beats CPU-only faster-whisper on
-  Apple Silicon, so we keep mlx-whisper for the words rather than adopting WhisperX wholesale.
+  `silero-vad`, `torch`, **`mlx-audio`**. Runs `transcribe.py` AND `sortformer_diarize.py`
+  (both Metal/MLX). MLX beats CPU-only faster-whisper on Apple Silicon, and Sortformer-on-MLX
+  beats pyannote-on-CPU on speed (~1000×) and on close-mic speaker separation — so the default
+  diarizer now lives HERE, not in the venv.
 - **pyannote venv** = `~/.venvs/diarization` (`VOICEMEMOS_VENV_PYTHON`; py3.10,
-  `pyannote.audio` 4.0.4). Runs diarize/enroll/identify. **CPU, not MPS** — torch+MPS is
-  broken for pyannote (unimplemented sparse ops; errors or silent-slow CPU fallback).
+  `pyannote.audio` 4.0.4). Runs enroll/identify (voiceprint naming, ALWAYS) + the FALLBACK
+  diarizer `diarize.py` (when `VOICEMEMOS_DIAR_ENGINE=pyannote`). **CPU, not MPS** — torch+MPS
+  is broken for pyannote (unimplemented sparse ops; errors or silent-slow CPU fallback).
   Pinned in `diarize.py`. Kept in its own venv so torch never collides with the mlx env;
-  big (~torch), lives outside git.
+  big (~torch), lives outside git. NOTE: Sortformer's win is partly WHY we no longer depend on
+  this slow CPU path by default — `identify.py --turns` consumes Sortformer's turns and only the
+  (fast) voiceprint embedding runs in the venv.
 
 ## Data + venv live OUTSIDE git (by design)
 
