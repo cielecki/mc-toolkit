@@ -72,6 +72,15 @@ filter), and the cleaner separation also let the voiceprint step correctly name 
 where pyannote's merged clusters had failed. Caps at 4 speakers (fine for memos). Set
 `VOICEMEMOS_DIAR_ENGINE=pyannote` to fall back to the clustering pipeline. `sortformer_diarize.py`
 runs in the mlx env and emits turns; `identify.py --turns` (venv) does naming + word assignment.
+**Long files (>600 s) auto-switch to `generate_stream` (180 s chunks, bounded spkcache)** —
+the one-shot `model.generate` path runs O(seq_len²) self-attention over the WHOLE file and
+its peak MLX memory grows quadratically (measured: 60 s=1.1 GB, 600 s=9.5 GB, 900 s=18.8 GB →
+~520 GB projected for a 78-min memo), which OOMs even a 128 GB Mac (`libc++abi: terminating`).
+Streaming holds ~5 GB flat regardless of length and keeps speaker identity across chunks. The
+600/180 s thresholds are `STREAM_OVER_S`/`STREAM_CHUNK_S` constants at the top of
+`sortformer_diarize.py` (edit there to tune). Distinct unnamed
+speakers stay distinct: unmatched clusters get suffixed labels (`inny 1`, `inny 2`, …), NOT one
+collapsed `unknown_label` (which made `render.py` merge several real voices into one block).
 
 - **Solo memo** → either backend is trivially correct (Sortformer returns 1; pyannote `--num-speakers 1`).
 - **2–4 speakers** → Sortformer (default) — best on close-mic/overlap; pyannote `community-1` is the fallback.
