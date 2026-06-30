@@ -7,6 +7,17 @@
 # Setup (one time): references/fda-setup.md
 
 set -u
+
+# Resolve the data dir the SAME way the Python side (_config.cfg) does, so a DIRECT
+# `bash snapshot_trigger.sh` call lands where sync.py writes. sync.py exports
+# VOICEMEMOS_DATA before calling us; a bare bash call did NOT, so it defaulted to
+# ~/voicememos and created a stray 2nd mirror. Order: env var → config.local.json → default.
+if [ -z "${VOICEMEMOS_DATA:-}" ]; then
+  CFG="$(cd "$(dirname "$0")/.." && pwd)/config.local.json"
+  if [ -f "$CFG" ] && [ -x /usr/bin/python3 ]; then
+    VOICEMEMOS_DATA=$(/usr/bin/python3 -c "import json,os;print(os.path.expanduser(json.load(open('$CFG')).get('VOICEMEMOS_DATA') or ''))" 2>/dev/null)
+  fi
+fi
 DATA="${VOICEMEMOS_DATA:-$HOME/voicememos}/snapshot"
 SNAPSHOT_APP="$HOME/Applications/VoiceMemosSnapshot.app"
 SIDECAR="$HOME/Applications/VoiceMemosSnapshot.dest"
