@@ -180,11 +180,26 @@ def identify_turns(audio_path, turns, *, threshold=None,
     by_spk = {}
     for t in turns:
         by_spk.setdefault(t["speaker"], []).append((t["start"], t["end"]))
-    mapping = {}
+    # First pass: match each anonymous cluster to an enrolled voiceprint (or None).
+    raw = {}  # spk -> (name|None, score, scores)
     for spk, segs in by_spk.items():
         cv = embed_segments(audio_path, segs, token)
-        name, score, scores = match(cv, voiceprints, threshold)
-        mapping[spk] = name or unknown_label
+        raw[spk] = match(cv, voiceprints, threshold)
+    # Second pass: build the label map. Matched clusters take the enrolled name (two
+    # clusters matching the SAME person correctly collapse to that name). UNMATCHED
+    # clusters must STAY DISTINCT — they are different real people we just can't name,
+    # so they get suffixed labels ("inny 1", "inny 2", …) rather than all collapsing
+    # to one `unknown_label` (which made render.py merge several speakers into a single
+    # block). A lone unknown keeps the bare label (no "1" suffix) for readability.
+    unmatched = [spk for spk, (name, _, _) in raw.items() if not name]
+    suffix = {}
+    if len(unmatched) > 1:
+        # number by first appearance in the timeline so labels read in spoken order
+        order = sorted(unmatched, key=lambda s: min(st for st, _ in by_spk[s]))
+        suffix = {spk: f"{unknown_label} {i}" for i, spk in enumerate(order, 1)}
+    mapping = {}
+    for spk, (name, score, scores) in raw.items():
+        mapping[spk] = name or suffix.get(spk, unknown_label)
         log(f"speaker_id: {spk} -> {mapping[spk]}  (best {score:.3f}; "
             + ", ".join(f"{n}:{s:.2f}" for n, s in scores.items()) + ")")
     return mapping
