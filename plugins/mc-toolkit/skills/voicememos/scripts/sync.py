@@ -35,6 +35,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from _config import cfg
+import quality  # scripts/ is already on sys.path (line 35)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DATA = cfg("VOICEMEMOS_DATA", "~/voicememos", expand=True)
@@ -218,9 +219,20 @@ def main():
             ident = run_json(id_cmd, cwd=HERE)
             words = ident["words"]
             write_transcript_md(os.path.join(outdir, "transcript.md"), rec, words)
+            speech_s = words_obj.get("speech_seconds", 0.0)
+            mconf = quality.mean_confidence(words)
+            loop = quality.is_repetition_loop(words)
+            health = quality.classify_health(speech_s, len(words), rec["duration_s"], mconf, loop)
             meta = {**{k: rec[k] for k in ("id", "title", "date", "duration_s", "audio_local")},
+                    "original_title": rec["title"],
                     "language": words_obj.get("language"),
                     "speakers": ident.get("speakers"), "speaker_map": ident.get("mapping"),
+                    "speech_seconds": speech_s,
+                    "mean_confidence": mconf,
+                    "transcript_health": health,
+                    "engine": words_obj.get("_engine", "whisper-local"),
+                    "status": "archived" if health == "empty" else "needs-routing",
+                    "routing_note": "",
                     "source_path": rec["audio"]}
             json.dump(meta, open(os.path.join(outdir, "meta.json"), "w"),
                       ensure_ascii=False, indent=2)
