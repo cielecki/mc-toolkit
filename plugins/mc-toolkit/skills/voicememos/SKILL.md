@@ -102,6 +102,34 @@ Skip renaming for `status: archived` (empty) memos — they keep their date-slug
 5. Call `route.write_disposition(memo_dir, "routed", "<free-text: what was done and where>")`.
    The free text is the durable "co zrobiono i dokąd" — be specific (targets, task links).
 
+## Backlog — draining pre-existing folders
+
+Old folders (~69 of them) predate the quality/routing fields — no `transcript_health`,
+no `status`. To fold them into the same pipeline:
+
+1. **Backfill health.** For each folder missing `transcript_health`: load `data.json`
+   (`{"rec": …, "words": [...]}`) and compute `quality.mean_confidence(words)` +
+   `quality.is_repetition_loop(words)`. For `speech_seconds`, only re-run VAD when
+   `words` is empty — that's what distinguishes truly-empty audio from a suspect
+   (speech present, STT failed) transcription:
+   ```bash
+   /opt/homebrew/bin/python3.14 -c "import sys;sys.path.insert(0,'../../stt/engines');import local;print(local.speech_seconds_from_ranges(local.speech_ranges(local.decode_pcm('<audio.m4a>'))))"
+   ```
+   (mlx env — `local.decode_pcm` → `local.speech_ranges` → `local.speech_seconds_from_ranges`,
+   same chain `transcribe.py` runs internally.) If `words` is non-empty, `speech_seconds`
+   is derivable-enough from the words themselves (no need to re-run VAD). Then
+   `quality.classify_health(speech_seconds, word_count, duration_s, mean_conf, is_loop)`
+   and write the result into `meta.json` via a **merge** — read the existing file, add
+   `transcript_health` / `speech_seconds` / `mean_confidence` (keep every pre-existing
+   field untouched), and set `status: needs-routing` (or `archived` when `classify_health`
+   returns `empty`) — mirrors what `sync.py` already does for new memos.
+2. **Run the same in-session flow** (Step 0 → A → B, above) over the backfilled
+   `needs-routing` set, in date order, with approval at each step — this IS the backlog
+   decision pass, there is no separate mechanism. Treat each backfilled memo exactly like
+   a freshly-synced one: quality gate first, then auto-title, then route.
+3. `python3 scripts/overview.py` shows what's left at any time (folder / health / status /
+   title-or-note table, generated on demand — never stored, so it's always current).
+
 ## Diarization accuracy tiers
 
 **Default local diarizer = NVIDIA Sortformer (end-to-end, via mlx-audio)** since 2026-06-16
