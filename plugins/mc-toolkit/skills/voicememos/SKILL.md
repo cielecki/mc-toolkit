@@ -60,6 +60,20 @@ python3 scripts/sync.py
 With no voiceprints enrolled, speakers stay anonymous (`SPEAKER_00/01`) — it
 degrades gracefully to plain diarization.
 
+## Post-sync routing flow (in-session)
+
+After `sync.py` finishes, the skill (this session) processes every memo whose
+`meta.json` has `status: needs-routing`, one at a time. Never batch the decisions.
+
+### Step A — Auto-title (content, not name)
+For each memo, read the FULL `transcript.md` and produce a short descriptive
+Polish title (≤ 6 words, names the topic/people, e.g. "Adam — projekt i inwestycje").
+Then:
+1. `python3 scripts/route.py`-backed rename: call `route.rename_memo(memo_dir, route.safe_slug(title))`.
+2. Write both titles into the (possibly moved) `meta.json`: set `generated_title` = the new title,
+   keep `original_title` as-is.
+Skip renaming for `status: archived` (empty) memos — they keep their date-slug.
+
 ## Diarization accuracy tiers
 
 **Default local diarizer = NVIDIA Sortformer (end-to-end, via mlx-audio)** since 2026-06-16
