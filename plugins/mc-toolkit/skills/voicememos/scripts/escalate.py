@@ -5,13 +5,13 @@ in SKILL.md). Local-first already ran in sync; this is the deliberate second ste
 Usage: escalate.py <memo_dir> --engine openai|assemblyai|elevenlabs [--model M]
 
 --model is openai-only. The openai engine defaults to gpt-4o-transcribe-diarize so the
-escalated transcript keeps speaker turns. The local transcript is saved as
-transcript_local.md before transcript.md is overwritten.
+escalated transcript keeps speaker turns. transcript.md is overwritten in place — the
+local transcript isn't preserved (escalation only runs when it was suspect anyway, and
+it's still reconstructible via data.json + render.py).
 """
 import argparse
 import json
 import os
-import shutil
 import subprocess
 import sys
 
@@ -38,12 +38,6 @@ def main():
     if not os.path.exists(audio):
         sys.exit(f"no audio.m4a in {args.memo_dir}")
     out_md = os.path.join(args.memo_dir, "transcript.md")
-
-    # Preserve the local transcript before the cloud engine overwrites it in place.
-    # (Also recoverable via data.json + render.py, but keep a plain-text copy too.)
-    local_backup = os.path.join(args.memo_dir, "transcript_local.md")
-    if os.path.exists(out_md) and not os.path.exists(local_backup):
-        shutil.copy2(out_md, local_backup)
 
     model = args.model or (OPENAI_DEFAULT_MODEL if args.engine == "openai" else None)
     cmd = ["python3", os.path.join(HERE, ENGINE_SCRIPT[args.engine]), audio, "--out", out_md]
