@@ -33,3 +33,26 @@ def test_rename_memo_collision_suffix(tmp_path):
     (d / "meta.json").write_text("{}")
     new = route.rename_memo(str(d), "adam")
     assert os.path.basename(new) == "2026-07-03-adam-2"
+
+def test_rename_memo_noop_when_slug_unchanged(tmp_path):
+    d = tmp_path / "2026-07-03-adam"
+    d.mkdir()
+    (d / "meta.json").write_text("{}")
+    new = route.rename_memo(str(d), "adam")
+    assert new == str(d) and os.path.isdir(str(d))
+
+def test_date_prefix_raises_on_non_dated(tmp_path):
+    import pytest
+    d = tmp_path / "untitled-recording-42"
+    d.mkdir()
+    with pytest.raises(ValueError):
+        route.rename_memo(str(d), "adam-o-projekt")
+
+def test_rename_memo_multi_level_collision(tmp_path):
+    (tmp_path / "2026-07-03-adam").mkdir()
+    (tmp_path / "2026-07-03-adam-2").mkdir()
+    d = tmp_path / "2026-07-03-old"
+    d.mkdir()
+    (d / "meta.json").write_text("{}")
+    new = route.rename_memo(str(d), "adam")
+    assert os.path.basename(new) == "2026-07-03-adam-3"

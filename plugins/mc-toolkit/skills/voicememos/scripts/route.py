@@ -16,7 +16,9 @@ def safe_slug(title, maxlen=48):
 def _date_prefix(memo_dir):
     base = os.path.basename(memo_dir.rstrip("/"))
     m = re.match(r"(\d{4}-\d{2}-\d{2})-", base)
-    return m.group(1) if m else base.split("-")[0]
+    if not m:
+        raise ValueError(f"memo folder name lacks a YYYY-MM-DD- prefix: {base!r}")
+    return m.group(1)
 
 
 def rename_memo(memo_dir, new_slug):
@@ -39,7 +41,12 @@ def rename_memo(memo_dir, new_slug):
 
 def write_disposition(memo_dir, status, note):
     p = os.path.join(memo_dir, "meta.json")
-    meta = json.load(open(p)) if os.path.exists(p) else {}
+    if os.path.exists(p):
+        with open(p) as f:
+            meta = json.load(f)
+    else:
+        meta = {}
     meta["status"] = status
     meta["routing_note"] = note
-    json.dump(meta, open(p, "w"), ensure_ascii=False, indent=2)
+    with open(p, "w") as f:
+        json.dump(meta, f, ensure_ascii=False, indent=2)
