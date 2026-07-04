@@ -48,6 +48,11 @@ def speech_ranges(a):
         torch.from_numpy(a.astype(np.float32) / 32768.0), model, sampling_rate=SR)
 
 
+def speech_seconds_from_ranges(ranges, sr=SR):
+    """Total detected-speech duration in seconds (VAD ranges are in samples)."""
+    return round(sum(r["end"] - r["start"] for r in ranges) / sr, 1)
+
+
 def transcribe(path, language="auto", model=None):
     """Transcribe one audio file. Returns {"words", "text", "language"}.
     language="auto" detects once on the longest speech segment and locks it."""
@@ -56,8 +61,10 @@ def transcribe(path, language="auto", model=None):
     a = decode_pcm(path)
     af = a.astype(np.float32) / 32768.0
     ranges = speech_ranges(a)
+    speech_s = speech_seconds_from_ranges(ranges)
     if not ranges:
-        return {"words": [], "text": "", "language": language if language != "auto" else "en"}
+        return {"words": [], "text": "", "language": language if language != "auto" else "en",
+                "speech_seconds": speech_s}
 
     pad = int(PAD_S * SR)
 
@@ -121,4 +128,5 @@ def transcribe(path, language="auto", model=None):
         "words": words,
         "text": " ".join(w["text"] for w in words),
         "language": language,
+        "speech_seconds": speech_s,
     }
