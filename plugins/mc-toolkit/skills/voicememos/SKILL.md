@@ -65,6 +65,18 @@ degrades gracefully to plain diarization.
 After `sync.py` finishes, the skill (this session) processes every memo whose
 `meta.json` has `status: needs-routing`, one at a time. Never batch the decisions.
 
+### Step 0 — Quality gate + escalation
+For each memo, read `meta.json` `transcript_health`:
+- `healthy` → proceed to Step A.
+- `empty` → already `status: archived`; confirm with the user before finalizing (v1 ZAPYTAJ)
+  — this is where trust in the empty-detector is earned; only graduate to silent-auto later.
+- `suspect` → judge SENSITIVITY from the (partial) local transcript. Pick the highest rung the
+  sensitivity allows (sensitive → max OpenAI; non-sensitive quality-critical → up to ElevenLabs).
+  ALWAYS ask before sending: "słaby transkrypt, temat wygląda na X, proponuję <engine>
+  (<privacy one-liner>) — ok?". On approval run `escalate.py`, then re-run the quality gate;
+  if still `suspect`, set `status: needs-attention` and surface it.
+Never send sensitive audio (health/therapy/intimacy/finance/family) past OpenAI.
+
 ### Step A — Auto-title (content, not name)
 For each memo, read the FULL `transcript.md` and produce a short descriptive
 Polish title (≤ 6 words, names the topic/people, e.g. "Adam — projekt i inwestycje").
