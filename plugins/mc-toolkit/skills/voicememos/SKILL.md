@@ -74,6 +74,19 @@ Then:
    keep `original_title` as-is.
 Skip renaming for `status: archived` (empty) memos — they keep their date-slug.
 
+### Step B — Route (rules from the text file)
+1. Load `<data-dir>/routing-rules.md` (the private criterion→action table).
+2. For each `needs-routing` memo, read the FULL `transcript.md`, match it against the
+   criteria, and pick the applicable action(s). If none match, propose a best-guess disposition.
+3. If the matched action says `NIE pytaj` → execute it. If `ZAPYTAJ` (v1 default: all) →
+   present the proposal (category read from content, the concrete action, target paths) and
+   wait for approve / edit / execute.
+4. Execute the action: simple inline (archive, create Todoist task, file a short note),
+   or hand off to the domain skill for complex work (e.g. specjalista → intimacy flow,
+   projekt → skill-korporacyjny). Record what you did.
+5. Call `route.write_disposition(memo_dir, "routed", "<free-text: what was done and where>")`.
+   The free text is the durable "co zrobiono i dokąd" — be specific (targets, task links).
+
 ## Diarization accuracy tiers
 
 **Default local diarizer = NVIDIA Sortformer (end-to-end, via mlx-audio)** since 2026-06-16
