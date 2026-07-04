@@ -696,7 +696,7 @@ import os
 import re
 import sys
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # voicememos/ root, for _config
 from _config import cfg
 
 DATED = re.compile(r"^\d{4}-\d{2}-\d{2}-")
