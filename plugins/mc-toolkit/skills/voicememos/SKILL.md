@@ -73,8 +73,11 @@ For each memo, read `meta.json` `transcript_health`:
 - `suspect` → judge SENSITIVITY from the (partial) local transcript. Pick the highest rung the
   sensitivity allows (sensitive → max OpenAI; non-sensitive quality-critical → up to ElevenLabs).
   ALWAYS ask before sending: "słaby transkrypt, temat wygląda na X, proponuję <engine>
-  (<privacy one-liner>) — ok?". On approval run `escalate.py`, then re-run the quality gate;
-  if still `suspect`, set `status: needs-attention` and surface it.
+  (<privacy one-liner>) — ok?". On approval run `escalate.py`, then **re-read the new (cloud)
+  transcript and judge in-session whether it's still unusable** — there is no automated re-gate
+  after cloud escalation (the cloud engines return text only, no VAD/confidence signal, and
+  `escalate.py` optimistically marks it `healthy`). If it still looks like garbage, set
+  `status: needs-attention` and surface it.
 Never send sensitive audio (health/therapy/intimacy/finance/family) past OpenAI.
 
 ### Step A — Auto-title (content, not name)
