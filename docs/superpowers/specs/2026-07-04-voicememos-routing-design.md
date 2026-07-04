@@ -49,7 +49,7 @@ Drabina rankowana prywatnością:
 | rung | silnik | profil prywatności |
 |---|---|---|
 | 0 | **local whisper** (default, zawsze pierwszy) | w 100% na Macu |
-| 1 | **OpenAI** gpt-4o-transcribe | **nie trenuje**, auto-delete ≤30 dni; najlepsza cloud-prywatność; tylko tekst (mówcy przez lokalny pyannote) |
+| 1 | **OpenAI** gpt-4o-transcribe | **nie trenuje**, auto-delete ≤30 dni; najlepsza cloud-prywatność; eskalacja domyślnie używa wariantu `gpt-4o-transcribe-diarize`, więc mówcy pochodzą z OpenAI (samo `gpt-4o-transcribe` to tylko tekst) |
 | 2 | **AssemblyAI** | auto-kasuje transkrypt po pobraniu; **trenuje** domyślnie (jednorazowy opt-out mailem) |
 | 3 | **ElevenLabs** | **nie kasuje**, **trenuje**, retencja domyślna; lider jakości na audio telefonicznym |
 
