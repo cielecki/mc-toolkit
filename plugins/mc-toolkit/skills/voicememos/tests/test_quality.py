@@ -36,5 +36,14 @@ def test_repetition_loop_detects_dominant_trigram():
     assert quality.is_repetition_loop(words) is True
 
 def test_repetition_loop_false_on_varied_text():
+    # 11 tokens → exits via the <12-token length guard (not the ratio).
     words = [w(t) for t in "the quick brown fox jumps over the lazy dog again today".split()]
+    assert quality.is_repetition_loop(words) is False
+
+def test_repetition_loop_false_on_long_varied_text():
+    # 14 tokens → past the length guard, so the trigram-share RATIO decides:
+    # every 3-gram is unique, top share = 1/12 < 0.5 → not a loop.
+    words = [w(t) for t in
+             "the quick brown fox jumps over the lazy dog and then runs away quickly".split()]
+    assert len([t for t in words if t["text"]]) >= 12
     assert quality.is_repetition_loop(words) is False

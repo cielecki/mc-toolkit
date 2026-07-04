@@ -8,7 +8,8 @@ The canonical local STT engine (was voicememos/transcribe.py). Pipeline:
      roughly DOUBLE Polish WER (measured 2026-06-14: 24.4 vs 11.7 on the eval set).
      Contiguous slice → word timestamps offset linearly by slice start (diarization needs
      real-audio time); long silence BETWEEN windows is skipped (anti-hallucination).
-  4. Return {"words":[{text,start,end(ms),speaker:None,confidence}], "text", "language"}.
+  4. Return {"words":[{text,start,end(ms),speaker:None,confidence}], "text", "language",
+     "speech_seconds"}.
 
 condition_on_previous_text is left at whisper's default (True): cross-window context
 helps Polish (measured); the compression-ratio / avg-logprob gates in _filter catch the
@@ -54,7 +55,7 @@ def speech_seconds_from_ranges(ranges, sr=SR):
 
 
 def transcribe(path, language="auto", model=None):
-    """Transcribe one audio file. Returns {"words", "text", "language"}.
+    """Transcribe one audio file. Returns {"words", "text", "language", "speech_seconds"}.
     language="auto" detects once on the longest speech segment and locks it."""
     import mlx_whisper
     model = model or DEFAULT_MODEL

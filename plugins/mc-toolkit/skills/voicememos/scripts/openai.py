@@ -5,9 +5,10 @@ OpenAI does NOT train on API data by default and retains it max 30 days (abuse
 monitoring), then deletes — no opt-out email, no manual cleanup. ~$0.006/min
 (gpt-4o-transcribe) / $0.003/min (mini). Key from ~/.claude/.env (OPENAI_API_KEY).
 
-Limitation vs assemblyai/elevenlabs: NO diarization and no word timestamps on the
-gpt-4o-transcribe models — text only. Speaker labels would have to come from the
-local pyannote pipeline. Audio file limit 25 MB.
+Note: the plain gpt-4o-transcribe / -mini / whisper-1 models are text-only (NO
+diarization, no word timestamps). For speaker turns use the gpt-4o-transcribe-diarize
+variant (diarized_json → to_turns); escalate.py defaults the openai engine to it.
+Audio file limit 25 MB.
 
 Usage:
   python3 openai.py <audio> [--language pl] [--model gpt-4o-transcribe] [--out file]

@@ -56,7 +56,7 @@ The ladder is ranked by privacy posture, cheapest/most-private first:
 | rung | engine | privacy profile |
 |---|---|---|
 | 0 | **local whisper** (default, always first) | 100% on-device |
-| 1 | **OpenAI** gpt-4o-transcribe | does not train on data; auto-delete ≤30 days; best cloud privacy of the three; text only (speaker labels stay from local pyannote) |
+| 1 | **OpenAI** gpt-4o-transcribe | does not train on data; auto-delete ≤30 days; best cloud privacy of the three; escalation defaults to the `gpt-4o-transcribe-diarize` variant so speaker turns come from OpenAI (plain `gpt-4o-transcribe` is text-only) |
 | 2 | **AssemblyAI** | auto-deletes audio right after transcription; trains on data by default (one-time email opt-out) |
 | 3 | **ElevenLabs** | does not auto-delete; trains on data by default; default retention with no published TTL; best quality on phone-call-like audio |
 
