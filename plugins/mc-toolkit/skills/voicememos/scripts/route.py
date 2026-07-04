@@ -9,7 +9,7 @@ import re
 def safe_slug(title, maxlen=48):
     s = (title or "").strip().lower()
     s = re.sub(r"[^\w\sąćęłńóśźżĄĆĘŁŃÓŚŹŻ-]", "", s, flags=re.UNICODE)
-    s = re.sub(r"\s+", "-", s).strip("-")
+    s = re.sub(r"[\s-]+", "-", s).strip("-")  # collapse runs of whitespace/hyphens → single -
     return (s[:maxlen].strip("-") or "memo")
 
 
