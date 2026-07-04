@@ -60,6 +60,8 @@ The ladder is ranked by privacy posture, cheapest/most-private first:
 | 2 | **AssemblyAI** | auto-deletes audio right after transcription; trains on data by default (one-time email opt-out) |
 | 3 | **ElevenLabs** | does not auto-delete; trains on data by default; default retention with no published TTL; best quality on phone-call-like audio |
 
+**Źródła profili prywatności:** AssemblyAI i ElevenLabs — `references/privacy-research.md` (zweryfikowane). OpenAI — design spec `docs/superpowers/specs/2026-07-04-voicememos-routing-design.md` (privacy-research.md nie pokrywa jeszcze OpenAI; do rozszerzenia).
+
 Per-engine detail (verbatim from `references/privacy-research.md` — that file is the
 source of truth for these facts; do not let this table drift from it):
 
