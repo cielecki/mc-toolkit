@@ -64,6 +64,26 @@ Default scope: enroll one known voice → label that name vs the unknown label
 (`VOICEMEMOS_UNKNOWN_LABEL`). Extensible to more people by enrolling more voiceprints
 (identify.py already handles N).
 
+## Room-mic group meetings are un-diarizable (verified 2026-07)
+
+A multi-person meeting recorded on a single phone (room-mic) captures only the person
+NEAR the mic. NO diarizer separates the far-field others: verified on a 12-person
+workshop with Sortformer, AssemblyAI + `--loudnorm`, an aggressive `dynaudnorm` boost,
+AND raw AssemblyAI (no `--label`) — all returned one dominant speaker + a handful of
+1–2 word "other" turns that were mostly the near-mic speaker's OWN utterances mis-split
+("Po" → "pierwsze", "Czyli" → "mamy decyzję"). Far-field speech below the noise floor
+can't be recovered by boosting — physics wins, don't burn API calls chasing it.
+- `--label` with a SINGLE enrolled voiceprint collapses every cluster to that one name
+  (looks like "everyone is the operator"). On a room-mic monologue that's cosmetically wrong but
+  harmless — just know it isn't real multi-speaker separation; keep unmatched clusters as
+  `inny N`, never force them onto the one enrolled name.
+- The real multi-voice record of such a meeting lives in the **video-call platform**
+  (Fathom = per-participant audio → clean speaker names), NOT the room-mic. Before trying
+  to diarize a group memo, check Fathom (`fathom-sync`). If there's no Fathom recap email,
+  nothing in the sync, and nothing in Gmail from any attendee → it was an IN-PERSON
+  room-mic recording → treat it as the near-mic person's monologue; don't chase a
+  multi-voice version that doesn't exist.
+
 ## Verified-test record (audio core)
 
 A controlled 2-speaker clip (macOS `say`: two distinct voices, alternating, with known
