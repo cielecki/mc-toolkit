@@ -36,7 +36,31 @@ def rename_memo(memo_dir, new_slug):
         target = os.path.join(parent, f"{base}-{n}")
         n += 1
     os.rename(memo_dir, target)
+    _update_state_out(target)  # keep sync's state.json in step with the rename
     return target
+
+
+def _update_state_out(new_dir):
+    """After a folder rename, repoint state.json[<id>]['out'] → new_dir so a later
+    `sync.py --force` rewrites the renamed folder IN PLACE instead of re-materializing
+    the memo at its (unchanged) app-title slug — the bug that spawned shadow duplicates.
+    Best-effort: the rename already succeeded, so a state hiccup must not raise."""
+    parent = os.path.dirname(new_dir)              # memo folders live directly in the data dir
+    state_path = os.path.join(parent, "state.json")
+    meta_path = os.path.join(new_dir, "meta.json")
+    if not (os.path.exists(state_path) and os.path.exists(meta_path)):
+        return
+    try:
+        mid = json.load(open(meta_path)).get("id")
+        if not mid:
+            return
+        state = json.load(open(state_path))
+        if isinstance(state.get(mid), dict):
+            state[mid]["out"] = new_dir
+            with open(state_path, "w") as f:
+                json.dump(state, f, ensure_ascii=False, indent=2)
+    except Exception:
+        pass
 
 
 def write_disposition(memo_dir, status, note):

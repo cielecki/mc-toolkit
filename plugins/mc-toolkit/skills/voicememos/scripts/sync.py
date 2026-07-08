@@ -181,7 +181,11 @@ def main():
         + ("" if args.include_evicted else f" | skipping {n_evicted} evicted (use --include-evicted)"))
 
     state = {}
-    if os.path.exists(STATE_PATH) and not args.force:
+    if os.path.exists(STATE_PATH):
+        # Always load state — even with --force. --force reprocesses every recording
+        # (the `todo` filter below ignores `done`), but we still need each memo's prior
+        # `out` path so a rewrite lands in the (possibly renamed/routed) existing folder
+        # instead of spawning a title-slug duplicate.
         state = json.load(open(STATE_PATH))
 
     def save_state():
@@ -194,7 +198,13 @@ def main():
 
     done = 0
     for rec in todo:
-        outdir = os.path.join(OUT, f"{rec['date_folder']}-{slugify(rec['title'])}")
+        # Prefer the folder this recording already lives in (survives an in-session
+        # rename via route.rename_memo, which repoints state[id]['out']); only fall back
+        # to the app-title slug for a genuinely new recording. Prevents --force from
+        # re-materializing a shadow copy at the original title after a routing rename.
+        prev_out = state.get(rec["id"], {}).get("out")
+        outdir = prev_out if (prev_out and os.path.isdir(prev_out)) \
+            else os.path.join(OUT, f"{rec['date_folder']}-{slugify(rec['title'])}")
         os.makedirs(outdir, exist_ok=True)
         log(f"  → {rec['title']} ({rec['duration_s']:.0f}s)")
         try:
@@ -234,8 +244,22 @@ def main():
                     "status": "archived" if health == "empty" else "needs-routing",
                     "routing_note": "",
                     "source_path": rec["audio"]}
-            json.dump(meta, open(os.path.join(outdir, "meta.json"), "w"),
-                      ensure_ascii=False, indent=2)
+            # Preserve a prior routing decision across a --force rewrite: re-transcribing
+            # refreshes the transcript but must NOT silently un-route an already-handled
+            # memo (drop it back into the needs-routing queue with an empty note).
+            mp = os.path.join(outdir, "meta.json")
+            if os.path.exists(mp):
+                try:
+                    prev = json.load(open(mp))
+                except Exception:
+                    prev = {}
+                if prev.get("status") in ("routed", "archived") and health != "empty":
+                    meta["status"] = prev["status"]
+                    meta["routing_note"] = prev.get("routing_note", "")
+                for k in ("generated_title",):
+                    if prev.get(k):
+                        meta[k] = prev[k]
+            json.dump(meta, open(mp, "w"), ensure_ascii=False, indent=2)
             # keep the labeled words so transcript.md can be re-rendered later (e.g.
             # a format change) WITHOUT re-running the slow whisper+pyannote pipeline.
             json.dump({"rec": {k: rec[k] for k in ("title", "date", "duration_s")},
