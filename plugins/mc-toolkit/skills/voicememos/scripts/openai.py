@@ -23,6 +23,7 @@ import subprocess
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from _config import cfg
 
 ENDPOINT = "https://api.openai.com/v1/audio/transcriptions"
