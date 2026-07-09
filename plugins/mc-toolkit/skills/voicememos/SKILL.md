@@ -1,8 +1,8 @@
 ---
 name: voicememos
 description: Sync Apple Voice Memos into local, speaker-labeled transcripts. Reads the TCC-protected Voice Memos container via a Full-Disk-Access snapshot app, transcribes each recording locally with mlx-whisper + silero-VAD, diarizes with pyannote, and labels a known speaker from an enrolled voiceprint — one folder per memo. All local/offline. Use for "/voicememos", "sync my voice memos", "transcribe my voice memos", "pobierz notatki głosowe", "zsynchronizuj voice memos", "kto to mówił w nagraniu", or to enroll/identify a voice. Do NOT use for live mic recording, audio files that aren't Apple Voice Memos.
-version: 1.1.0
-date: 2026-06-11
+version: 1.1.1
+date: 2026-07-09
 allowed-tools: Bash, Read, Write, Edit
 ---
 
@@ -192,6 +192,7 @@ memo via OpenAI you drive `openai.py` per chunk yourself. Hard limits hit live
 (2026-06-14, 62-min trainer session + 30-min lecture):
 - **`gpt-4o-transcribe` / `-mini`: max 1400 s/file** (error `audio duration … longer than 1400 seconds`). Chunk to ≤1200 s.
 - **`gpt-4o-transcribe-diarize`: 1400 s nominal, but on chunks ≳600 s the curl returns EMPTY (server-side timeout) — looks like a corrupt-file / JSON-decode error, not a clear message.** Chunk diarize to **≤600 s** and add a curl retry (`--max-time` + 2-3 attempts on empty stdout).
+- **The EMPTY-response flakiness bites the PLAIN models too** (2026-07-09: plain `gpt-4o-transcribe` returned empty on a ~925 s chunk; the identical direct `curl --max-time 240` retry succeeded in 36 s). `openai.py` has NO retry — on a JSON-decode crash, don't rechunk/re-encode: retry the same upload (2-3 attempts), via direct curl if needed.
 - **All endpoints: 25 MB upload cap.** Re-encode first — `ffmpeg -i in.qta -ac 1 -ar 16000 -b:a 32k out.mp3` (mono 16 kHz ~32 kbps) takes a 250 MB `.qta` to ~15 MB with zero ASR loss.
 - **`language` is a HINT, not a hard force** — `gpt-4o-transcribe` with `language=pl` still transcribes English passages correctly (bilingual memos survive). Probe a 60 s slice to detect language before committing.
 - **Diarize cross-chunk labels are NOT stable** (each chunk re-assigns A/B/C…; also over-splits 2 speakers into 4-5). For a 2-person memo, attribute by CONTENT, not the letter labels.
