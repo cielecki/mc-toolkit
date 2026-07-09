@@ -8,7 +8,7 @@ skill's local data dir (gitignored), not in this file.
 ## Pipeline order
 
 ```
-transcribe (local) → quality gate (+ escalation if needed) → auto-title → routing → write routing_note
+transcribe (local) → quality gate (+ escalation if needed) → auto-title → routing → write routing_note → rule-file learning
 ```
 
 1. **Transcribe (local).** `sync.py` always runs the local whisper + diarization
@@ -27,9 +27,14 @@ transcribe (local) → quality gate (+ escalation if needed) → auto-title → 
    `ZAPYTAJ` rule proposes the action and waits for approve/adjust/execute.
 6. **Write `routing_note`.** The outcome ("what was done and where") is written back
    to that memo's `meta.json`, plus `status`.
+7. **Rule-file learning.** If routing this memo established a new pattern (a new
+   destination, an execution gotcha, a user correction), the router PROPOSES an
+   addition/refinement to the private rule file and applies it on approval. New rules
+   always land as `ZAPYTAJ`; promotion to `NIE pytaj` is never done by the router —
+   it stays a hand-edit (the trust trajectory below).
 
 All of this runs in one session per memo, not as a separate pass — sync produces
-`status: needs-routing`, and the routing phase (steps 2-6) closes it out to `routed`,
+`status: needs-routing`, and the routing phase (steps 2-7) closes it out to `routed`,
 `archived`, or `needs-attention`.
 
 ## Quality gate

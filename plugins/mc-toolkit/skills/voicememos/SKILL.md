@@ -102,6 +102,16 @@ Skip renaming for `status: archived` (empty) memos — they keep their date-slug
 5. Call `route.write_disposition(memo_dir, "routed", "<free-text: what was done and where>")`.
    The free text is the durable "co zrobiono i dokąd" — be specific (targets, task links).
 
+### Step C — Rule-file learning
+After routing each memo (or a batch), check whether the session established a NEW
+pattern the rule file doesn't cover yet: a new destination, an execution gotcha hit
+along the way, or a correction from the user. If so, PROPOSE an addition/refinement
+to `<data-dir>/routing-rules.md` and apply it on approval. Constraints:
+- New/updated rules ALWAYS land as `ZAPYTAJ`. The router NEVER self-promotes a rule
+  to `NIE pytaj` — that promotion is the user's hand-edit (the trust trajectory the
+  system is built around).
+- Skip when the routing was a clean match of an existing rule — no learning, no edit.
+
 ## Backlog — draining pre-existing folders
 
 Old folders (~69 of them) predate the quality/routing fields — no `transcript_health`,
