@@ -80,6 +80,37 @@ For each memo, read `meta.json` `transcript_health`:
   `status: needs-attention` and surface it.
 Never send sensitive audio (health/therapy/intimacy/finance/family) past OpenAI.
 
+**Language-hallucination trigger (treat as `suspect` regardless of the health flag).**
+The health detector scores confidence, not language — a transcript can be flagged
+`healthy` while being garbage. When skimming ANY transcript, treat these as an
+automatic escalation trigger (same flow as `suspect` above): (a) transcript in a
+language nobody spoke (classic Whisper artifact: hallucinated Russian +
+"Субтитры делал DimaTorzok"), (b) auto-TRANSLATED speech (English talk rendered as
+broken Polish — meeting was EN, transcript is łamana polszczyzna), (c) long stretches
+of repeated filler ("Dziękuję." × dozens). Standing decision (the operator, 2026-07-11):
+for non-sensitive material this does NOT need a fresh per-memo ZAPYTAJ — re-transcribe
+via `escalate.py --engine assemblyai` and mention it in the recap. Sensitive material:
+still ask (rung rules above).
+
+### Step 0.5 — Split multi-session recordings / merge interrupted ones
+Standard pre-routing step for shape, BEFORE title/route (the operator, 2026-07-11):
+- **SPLIT**: one long recording covering SEVERAL distinct sessions (conference talks,
+  a workshop day, back-to-back meetings, all-day passive capture) → cut into one memo
+  folder PER session, so each is routed independently. Pattern = the AI Thinkers split
+  (`2026-06-18-ait1..8`): find boundaries from the (good-quality, escalated-if-needed)
+  transcript — host intros, applause, long silences, topic resets; slice audio with
+  `ffmpeg -ss <start> -to <end> -c copy`; per-part `meta.json` carries `source`
+  ("split from <master>"), `time_range`, `talk_index`, plus its own transcript slice.
+  Master memo → `status: routed`, note "split into <slugs>". Detection heuristic at
+  Step 0: duration ≳ 90 min AND transcript shows multiple unrelated
+  openings/audiences → propose a split (ZAPYTAJ with the proposed boundary list).
+- **MERGE (route-as-one)**: the inverse — one conversation accidentally recorded as
+  several files (recording interrupted/resumed, e.g. a dropped video call:
+  `testowa-11` = 1-min "reconnecting" stub + `testowa-12` = the real talk).
+  Do NOT physically concatenate audio; route them as ONE unit: the substantive memo
+  gets the routing, siblings get `archived` with a note pointing at it, and the
+  disposition names all parts.
+
 ### Step A — Auto-title (content, not name)
 For each memo, read the FULL `transcript.md` and produce a short descriptive
 Polish title (≤ 6 words, names the topic/people, e.g. "Adam — projekt i inwestycje").
