@@ -92,6 +92,21 @@ for non-sensitive material this does NOT need a fresh per-memo ZAPYTAJ — re-tr
 via `escalate.py --engine assemblyai` and mention it in the recap. Sensitive material:
 still ask (rung rules above).
 
+**Engine choice when a memo will be SPLIT (or already has dual transcripts).** A split
+needs `**Speaker X** [MM:SS]` timestamp anchors — so for a recording you intend to cut,
+prefer the timestamped/diarized transcript (**AssemblyAI**). `openai gpt-4o-transcribe`
+returns flowing text with NO speaker/timestamp headers (verified 2026-07-11 on the
+`ait*` dual transcripts — 0 `[ts]` blocks, only a rough self-declared time window that
+didn't match the real slice), which is unusable for boundary-cutting and later per-talk
+review. NOTE: this is about *timestamps*, NOT completeness — do not claim gpt-4o
+"truncates long audio" from a byte/word-count gap alone (that was a wrong call, retracted
+2026-07-11); AAI simply carries the anchors + speaker labels openai lacks. **Normalization
+invariant:** every memo the pipeline sees keys on `transcript.md`; if a step writes
+engine-suffixed files (`transcript_aai.md` / `transcript_openai.md`), it MUST also write
+`transcript.md` (copy of the chosen primary). The old `ait1-8` split skipped this and the
+folders read as 0-byte to the backlog scan until normalized. `split.py` already writes
+`transcript.md` directly — this invariant is for any hand/dual-transcription path.
+
 ### Step 0.5 — Split multi-session recordings / merge interrupted ones
 Standard pre-routing step for shape, BEFORE title/route (the operator, 2026-07-11):
 - **SPLIT**: one long recording covering SEVERAL distinct sessions (conference talks,
