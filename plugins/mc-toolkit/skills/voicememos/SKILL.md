@@ -96,14 +96,24 @@ still ask (rung rules above).
 Standard pre-routing step for shape, BEFORE title/route (the operator, 2026-07-11):
 - **SPLIT**: one long recording covering SEVERAL distinct sessions (conference talks,
   a workshop day, back-to-back meetings, all-day passive capture) → cut into one memo
-  folder PER session, so each is routed independently. Pattern = the AI Thinkers split
-  (`2026-06-18-ait1..8`): find boundaries from the (good-quality, escalated-if-needed)
-  transcript — host intros, applause, long silences, topic resets; slice audio with
-  `ffmpeg -ss <start> -to <end> -c copy`; per-part `meta.json` carries `source`
-  ("split from <master>"), `time_range`, `talk_index`, plus its own transcript slice.
-  Master memo → `status: routed`, note "split into <slugs>". Detection heuristic at
-  Step 0: duration ≳ 90 min AND transcript shows multiple unrelated
-  openings/audiences → propose a split (ZAPYTAJ with the proposed boundary list).
+  folder PER session, so each is routed independently. Standard, not per-session
+  hand-work (the operator: "powinniśmy mieć do tego dobry engine który to robi automatycznie").
+  Two-step engine:
+  1. **Detect boundaries** (LLM pass over the good-quality transcript — escalate first
+     if `suspect`/mis-detected). Anchor cuts on the `**Speaker X** [MM:SS]` timestamps:
+     host intros, applause + "next speaker", topic resets, long silences (ambient/
+     kuluary → drop or mark that child `archived`). Produce a segments list
+     `[{slug,title,start,end,status?}]`.
+  2. **Execute the cut** deterministically: `python3 scripts/split.py <memo_dir>
+     <segments.json>`. It ffmpeg-slices audio (lossless `-ss`/`-t -c copy`), slices the
+     transcript by timestamp, writes each child's `meta.json` (`source`="split from
+     <master>", `time_range`, `talk_index`), and flags the master `routed` with a note
+     listing children. Children land as `<date>-<slug>` and re-enter routing at Step A.
+  Pattern precedent = AI Thinkers (`2026-06-18-ait1..8`). Detection heuristic at Step 0:
+  duration ≳ 90 min AND transcript shows multiple unrelated openings/audiences → run the
+  split (ZAPYTAJ with the proposed boundary list before slicing). Fully-automatic
+  boundary detection inside `sync.py` is a future step; today the LLM boundary pass is
+  in-session, `split.py` is the reusable executor.
 - **MERGE (route-as-one)**: the inverse — one conversation accidentally recorded as
   several files (recording interrupted/resumed, e.g. a dropped video call:
   `testowa-11` = 1-min "reconnecting" stub + `testowa-12` = the real talk).
