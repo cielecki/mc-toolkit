@@ -54,8 +54,14 @@ def upload(k, path):
 
 
 def create(k, url, lang):
-    body = json.dumps({"audio_url": url, "speech_models": ["universal-2"],
-                       "speaker_labels": True, "language_code": lang}).encode()
+    params = {"audio_url": url, "speech_models": ["universal-2"],
+              "speaker_labels": True}
+    # AssemblyAI has no "auto" language_code — automatic detection is a separate flag.
+    if lang in (None, "", "auto"):
+        params["language_detection"] = True
+    else:
+        params["language_code"] = lang
+    body = json.dumps(params).encode()
     req = urllib.request.Request(f"{AAI}/transcript", data=body,
                                  headers={"authorization": k, "content-type": "application/json"})
     try:

@@ -29,6 +29,9 @@ def main():
     ap.add_argument("memo_dir")
     ap.add_argument("--engine", required=True, choices=list(ENGINE_SCRIPT))
     ap.add_argument("--model", help="only valid for --engine openai")
+    ap.add_argument("--language", help="force a language code (e.g. en, pl); "
+                    "assemblyai/elevenlabs only. Omit for auto-detection. Use when a memo "
+                    "was mis-detected (e.g. Whisper hallucinated Russian on English audio).")
     args = ap.parse_args()
 
     if args.model and args.engine not in MODEL_ENGINES:
@@ -43,6 +46,8 @@ def main():
     cmd = ["python3", os.path.join(HERE, ENGINE_SCRIPT[args.engine]), audio, "--out", out_md]
     if model:
         cmd += ["--model", model]
+    if args.language and args.engine != "openai":
+        cmd += ["--language", args.language]
     if subprocess.run(cmd).returncode != 0:
         sys.exit(f"{args.engine} transcription failed")
 
