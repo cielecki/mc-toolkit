@@ -92,6 +92,19 @@ for non-sensitive material this does NOT need a fresh per-memo ZAPYTAJ — re-tr
 via `escalate.py --engine assemblyai` and mention it in the recap. Sensitive material:
 still ask (rung rules above).
 
+**OpenAI re-transcription needs CLEAN, CHUNKED audio — raw Voice Memos m4a fails (verified 2026-07-14).**
+Voice Memos records a MULTI-STREAM m4a (AAC voice + a 4-channel spatial track + data streams);
+OpenAI's transcribe API rejects it outright: `"Audio file might be corrupted or unsupported"`.
+And a long file isn't saved by the server-side `chunking_strategy=auto` (25 MB / duration limit).
+So before `escalate.py --engine openai` on a long / Voice-Memos recording, prep by hand:
+(1) extract ONE clean stream — `ffmpeg -i audio.m4a -map 0:a:0 -ac 1 -ar 16000 -c:a libmp3lame -q:a 5 clean.mp3`
+(mono 16 kHz = tiny + speech-fine, drops the spatial/data tracks); (2) if >~20 min / 20 MB,
+segment client-side — `ffmpeg -i clean.mp3 -f segment -segment_time 1200 -c copy chunk_%03d.mp3` —
+transcribe each chunk (`openai.py <chunk> --model gpt-4o-transcribe --language pl`) and concatenate
+the bodies with `## [~MM:00]` markers. This is the **rung-≤1 path for SENSITIVE audio** (health/therapy,
+where AAI is off-limits) so it MUST work. `openai.py`/`escalate.py` don't yet do this prep — do it by
+hand, or harden them (follow-up).
+
 **Engine choice when a memo will be SPLIT (or already has dual transcripts).** A split
 needs `**Speaker X** [MM:SS]` timestamp anchors — so for a recording you intend to cut,
 prefer the timestamped/diarized transcript (**AssemblyAI**). `openai gpt-4o-transcribe`
@@ -100,7 +113,11 @@ returns flowing text with NO speaker/timestamp headers (verified 2026-07-11 on t
 didn't match the real slice), which is unusable for boundary-cutting and later per-talk
 review. NOTE: this is about *timestamps*, NOT completeness — do not claim gpt-4o
 "truncates long audio" from a byte/word-count gap alone (that was a wrong call, retracted
-2026-07-11); AAI simply carries the anchors + speaker labels openai lacks. **Normalization
+2026-07-11); AAI simply carries the anchors + speaker labels openai lacks. **Caveat (2026-07-14):**
+`split.py` now cuts from `data.json` word timestamps, which the LOCAL pipeline always writes — so a
+locally-transcribed memo splits fine even with a flowing/single-speaker `transcript.md` (no `[ts]`
+headers needed). The AAI-for-splitting preference only bites when you CLOUD-re-transcribe a memo you'll
+also split, since cloud engines return text only (no `data.json`). **Normalization
 invariant:** every memo the pipeline sees keys on `transcript.md`; if a step writes
 engine-suffixed files (`transcript_aai.md` / `transcript_openai.md`), it MUST also write
 `transcript.md` (copy of the chosen primary). The old `ait1-8` split skipped this and the
