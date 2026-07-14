@@ -30,7 +30,9 @@ import subprocess
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import route  # noqa: E402
+from sync import write_transcript_md  # noqa: E402
 
 HEADER_RE = re.compile(r"^\*\*.+?\*\*\s*\[(\d+:\d+(?::\d+)?)\]\s*$")
 
@@ -83,6 +85,8 @@ def main():
     if not os.path.exists(audio):
         sys.exit(f"no audio.m4a in {memo_dir}")
     _, blocks = parse_blocks(transcript) if os.path.exists(transcript) else (None, [])
+    dj = os.path.join(memo_dir, "data.json")
+    words = json.load(open(dj, encoding="utf-8")).get("words") if os.path.exists(dj) else None
 
     made = []
     for i, seg in enumerate(segs, 1):
@@ -101,13 +105,24 @@ def main():
         if r.returncode != 0:
             sys.exit(f"ffmpeg failed on {slug}:\n{r.stderr[-800:]}")
 
-        # 2) transcript slice — blocks whose timestamp falls in [s, e)
-        kept = [b for (ts, b) in blocks if s <= ts < e]
-        head = (f"# {seg['title']}\n\n"
-                f"- **Source**: split from `{master_slug}` ({seg['start']}–{seg['end']})\n"
-                f"- **Date**: {date10}\n- **Part**: {i}/{len(segs)}\n\n---\n")
-        with open(os.path.join(out_dir, "transcript.md"), "w", encoding="utf-8") as f:
-            f.write(head + "\n".join("\n".join(b) for b in kept) + "\n")
+        # 2) transcript slice. Prefer data.json words (precise per-word ms) — re-zero
+        # each child to start at 0, carry a child data.json, and re-render. This is what
+        # makes single-speaker/flowing transcripts (no [ts] headers) splittable. Fall back
+        # to header-block slicing only when there is no data.json.
+        if words is not None:
+            sw = [{**w, "start": w["start"] - s * 1000, "end": w["end"] - s * 1000}
+                  for w in words if s * 1000 <= w["start"] < e * 1000]
+            crec = {"title": seg["title"], "date": date10, "duration_s": e - s}
+            json.dump({"rec": crec, "words": sw},
+                      open(os.path.join(out_dir, "data.json"), "w"), ensure_ascii=False)
+            write_transcript_md(os.path.join(out_dir, "transcript.md"), crec, sw)
+        else:
+            kept = [b for (ts, b) in blocks if s <= ts < e]
+            head = (f"# {seg['title']}\n\n"
+                    f"- **Source**: split from `{master_slug}` ({seg['start']}–{seg['end']})\n"
+                    f"- **Date**: {date10}\n- **Part**: {i}/{len(segs)}\n\n---\n")
+            with open(os.path.join(out_dir, "transcript.md"), "w", encoding="utf-8") as f:
+                f.write(head + "\n".join("\n".join(b) for b in kept) + "\n")
 
         # 3) per-child meta — merge base fields, add split provenance
         cmeta = {k: meta[k] for k in ("engine", "transcript_health", "language",

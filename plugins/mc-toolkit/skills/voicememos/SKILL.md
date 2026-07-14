@@ -120,21 +120,34 @@ Standard pre-routing step for shape, BEFORE title/route (the operator, 2026-07-1
      kuluary → drop or mark that child `archived`). Produce a segments list
      `[{slug,title,start,end,status?}]`.
   2. **Execute the cut** deterministically: `python3 scripts/split.py <memo_dir>
-     <segments.json>`. It ffmpeg-slices audio (lossless `-ss`/`-t -c copy`), slices the
-     transcript by timestamp, writes each child's `meta.json` (`source`="split from
-     <master>", `time_range`, `talk_index`), and flags the master `routed` with a note
-     listing children. Children land as `<date>-<slug>` and re-enter routing at Step A.
+     <segments.json>`. It ffmpeg-slices audio (lossless `-ss`/`-t -c copy`); for the
+     transcript it **prefers `data.json` words** (per-word ms, re-zeroed per child + a child
+     `data.json` carried), so it splits even single-speaker/flowing transcripts that have NO
+     `[MM:SS]` headers — falling back to header-block slicing only when there is no data.json.
+     Writes each child's `meta.json` (`source`="split from <master>", `time_range`,
+     `talk_index`), flags the master `routed`. Children land as `<date>-<slug>`, re-enter at
+     Step A. Boundary timestamps can be found by searching `data.json` words for a cue phrase
+     (e.g. an on-stage handoff "over to you X"), not just visible transcript headers.
   Pattern precedent = AI Thinkers (`2026-06-18-ait1..8`). Detection heuristic at Step 0:
   duration ≳ 90 min AND transcript shows multiple unrelated openings/audiences → run the
   split (ZAPYTAJ with the proposed boundary list before slicing). Fully-automatic
   boundary detection inside `sync.py` is a future step; today the LLM boundary pass is
   in-session, `split.py` is the reusable executor.
-- **MERGE (route-as-one)**: the inverse — one conversation accidentally recorded as
-  several files (recording interrupted/resumed, e.g. a dropped video call:
-  `testowa-11` = 1-min "reconnecting" stub + `testowa-12` = the real talk).
-  Do NOT physically concatenate audio; route them as ONE unit: the substantive memo
-  gets the routing, siblings get `archived` with a note pointing at it, and the
-  disposition names all parts.
+- **MERGE**: the inverse — one conversation recorded as several files (interrupted/
+  resumed). Two options by weight:
+  - **Physical merge** — `python3 scripts/merge.py <out_slug> <folder1> <folder2> …`
+    (folders in chronological order). Concatenates audio losslessly (ffmpeg concat — keeps
+    the primary AAC voice stream; Voice-Memos spatial/data tracks are dropped, which just
+    shrinks the file), concatenates `data.json` words offsetting each subsequent recording
+    by the running audio duration (timestamps stay monotonic), re-renders `transcript.md`,
+    marks the sources `archived`. Use when the parts are ONE substantive session you want
+    whole — **especially before splitting it by talk** (merge → then `split.py`). data.json-
+    driven, so each source needs a `data.json` (sync v0.3.4+; else `render.py`/re-sync first).
+    Precedent: GTM Week D1 roundtable — Sobolak+Przybylski (`#2`+`#3` stitched, then split at
+    the on-stage handoff).
+  - **Route-as-one** (no concat) — for a trivial stub + real-talk case (`testowa-11`
+    1-min "reconnecting" stub + `testowa-12` real talk): just route the substantive memo
+    and `archived` the stub with a pointer. Not worth the concat.
 
 ### Step A — Auto-title (content, not name)
 For each memo, read the FULL `transcript.md` and produce a short descriptive
