@@ -1,8 +1,8 @@
 ---
 name: voicememos
 description: Sync Apple Voice Memos into local, speaker-labeled transcripts. Reads the TCC-protected Voice Memos container via a Full-Disk-Access snapshot app, transcribes each recording locally with mlx-whisper + silero-VAD, diarizes with pyannote, and labels a known speaker from an enrolled voiceprint — one folder per memo. All local/offline. Use for "/voicememos", "sync my voice memos", "transcribe my voice memos", "pobierz notatki głosowe", "zsynchronizuj voice memos", "kto to mówił w nagraniu", or to enroll/identify a voice. Do NOT use for live mic recording, audio files that aren't Apple Voice Memos.
-version: 1.1.1
-date: 2026-07-09
+version: 1.1.2
+date: 2026-07-14
 allowed-tools: Bash, Read, Write, Edit
 ---
 
@@ -92,18 +92,17 @@ for non-sensitive material this does NOT need a fresh per-memo ZAPYTAJ — re-tr
 via `escalate.py --engine assemblyai` and mention it in the recap. Sensitive material:
 still ask (rung rules above).
 
-**OpenAI re-transcription needs CLEAN, CHUNKED audio — raw Voice Memos m4a fails (verified 2026-07-14).**
+**OpenAI auto-preps + chunks — raw/long Voice Memos audio just works (hardened 2026-07-14).**
 Voice Memos records a MULTI-STREAM m4a (AAC voice + a 4-channel spatial track + data streams);
-OpenAI's transcribe API rejects it outright: `"Audio file might be corrupted or unsupported"`.
-And a long file isn't saved by the server-side `chunking_strategy=auto` (25 MB / duration limit).
-So before `escalate.py --engine openai` on a long / Voice-Memos recording, prep by hand:
-(1) extract ONE clean stream — `ffmpeg -i audio.m4a -map 0:a:0 -ac 1 -ar 16000 -c:a libmp3lame -q:a 5 clean.mp3`
-(mono 16 kHz = tiny + speech-fine, drops the spatial/data tracks); (2) if >~20 min / 20 MB,
-segment client-side — `ffmpeg -i clean.mp3 -f segment -segment_time 1200 -c copy chunk_%03d.mp3` —
-transcribe each chunk (`openai.py <chunk> --model gpt-4o-transcribe --language pl`) and concatenate
-the bodies with `## [~MM:00]` markers. This is the **rung-≤1 path for SENSITIVE audio** (health/therapy,
-where AAI is off-limits) so it MUST work. `openai.py`/`escalate.py` don't yet do this prep — do it by
-hand, or harden them (follow-up).
+the raw file makes OpenAI reject it as `"Audio file might be corrupted or unsupported"`, and a
+long file overruns the per-model duration + 25 MB limits (the server-side `chunking_strategy=auto`
+does NOT save it). `openai.py` now handles both automatically: it re-encodes any input to a clean
+mono 16 kHz mp3 (`-map 0:a:0`, spatial/data tracks dropped — tiny + speech-fine), and when the
+file exceeds the model's duration/size ceiling it segments client-side (`-c copy`), transcribes
+each chunk with a retry, and stitches the bodies (`## [~MM:SS]` offset markers). So
+`escalate.py --engine openai` runs unattended on a long/raw recording — no manual prep. This is
+the **rung-≤1 path for SENSITIVE audio** (health/therapy, where AAI is off-limits), so it must
+stay reliable; the ceilings + rationale are in "## OpenAI engine — duration limits" below.
 
 **Engine choice when a memo will be SPLIT (or already has dual transcripts).** A split
 needs `**Speaker X** [MM:SS]` timestamp anchors — so for a recording you intend to cut,
@@ -273,13 +272,15 @@ collapsed `unknown_label` (which made `render.py` merge several real voices into
 
 ## OpenAI engine — duration limits + chunking (long Voice Memos)
 
-`openai.py` handles one file, but `sync.py` uses LOCAL whisper — to transcribe a long
-memo via OpenAI you drive `openai.py` per chunk yourself. Hard limits hit live
+`openai.py` now auto-preps (→ clean mono 16 kHz mp3) and auto-chunks long files
+client-side, so `escalate.py --engine openai` handles a long/raw Voice-Memos recording
+with no manual work. The ceilings below are what that chunker enforces (and why) — force
+`--chunk-seconds N` only to reproduce a boundary bug. Hard limits hit live
 (2026-06-14, 62-min trainer session + 30-min lecture):
 - **`gpt-4o-transcribe` / `-mini`: max 1400 s/file** (error `audio duration … longer than 1400 seconds`). Chunk to ≤1200 s.
 - **`gpt-4o-transcribe-diarize`: 1400 s nominal, but on chunks ≳600 s the curl returns EMPTY (server-side timeout) — looks like a corrupt-file / JSON-decode error, not a clear message.** Chunk diarize to **≤600 s** and add a curl retry (`--max-time` + 2-3 attempts on empty stdout).
-- **The EMPTY-response flakiness bites the PLAIN models too** (2026-07-09: plain `gpt-4o-transcribe` returned empty on a ~925 s chunk; the identical direct `curl --max-time 240` retry succeeded in 36 s). `openai.py` has NO retry — on a JSON-decode crash, don't rechunk/re-encode: retry the same upload (2-3 attempts), via direct curl if needed.
-- **All endpoints: 25 MB upload cap.** Re-encode first — `ffmpeg -i in.qta -ac 1 -ar 16000 -b:a 32k out.mp3` (mono 16 kHz ~32 kbps) takes a 250 MB `.qta` to ~15 MB with zero ASR loss.
+- **The EMPTY-response flakiness bites the PLAIN models too** (2026-07-09: plain `gpt-4o-transcribe` returned empty on a ~925 s chunk; the identical direct `curl --max-time 240` retry succeeded in 36 s). `openai.py` now retries the same upload up to 3× (`--max-time 240`) on an empty/non-JSON body, which clears this — a JSON-decode crash is no longer a rechunk/re-encode signal.
+- **All endpoints: 25 MB upload cap.** The auto-prep re-encode (mono 16 kHz mp3) already puts any recording well under this; the chunker also derives its per-chunk length from the file's real bitrate so no single chunk exceeds the cap.
 - **`language` is a HINT, not a hard force** — `gpt-4o-transcribe` with `language=pl` still transcribes English passages correctly (bilingual memos survive). Probe a 60 s slice to detect language before committing.
 - **Diarize cross-chunk labels are NOT stable** (each chunk re-assigns A/B/C…; also over-splits 2 speakers into 4-5). For a 2-person memo, attribute by CONTENT, not the letter labels.
 - **`.qta`** is the Voice Memos container extension for edited/long recordings — ffmpeg reads it fine.
