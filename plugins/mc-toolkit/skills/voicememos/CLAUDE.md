@@ -96,6 +96,23 @@ ground-truth boundaries) validated the pipeline:
 Any synthetic stand-in voiceprint should be removed after testing — real enrollment is
 the user's own voice.
 
+## Processing status is stamped on meta.json — read it, don't grep-reconstruct
+
+Each per-memo `meta.json` carries an authoritative **`status`** field — `routed`
+(filed to a durable home) or `archived` (consciously skipped) — plus a
+**`routing_note`** saying exactly where it went / why it was dropped. This is written
+by the DOWNSTREAM routing/audit pass (the ingest / "voice memos sync" workflow +
+Maciej's manual audits), NOT by this skill's `sync.py`.
+
+**To answer "which memos are still unprocessed", read `meta.json.status` across the
+data-dir — do NOT reconstruct it by grepping notes/issues/Slack.** A routed memo's
+note may cite its source by title (not path), may live in a repo you didn't scan
+(`work/10cfi-internal-marketplace/docs/`, GH issue comments), or may be on Slack — so
+a grep-based reconciliation massively over-reports "untouched". (Bit live 2026-07-15:
+a grep reconciliation invented a 19-item false backlog; reading `status` showed all
+103 memos were already `routed`/`archived` with a note, many from Maciej's own 14.07
+audit — zero real gaps.)
+
 ## CloudRecordings.db schema
 
 Table `ZCLOUDRECORDING` (Core Data). Columns sync.py uses:
