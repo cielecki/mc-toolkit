@@ -10,7 +10,7 @@
 
 - **69 folderów memos** (od 2026-06-09), `meta.json` nie ma żadnego pola statusu/decyzji — brak śladu „co zrobiono z tym memo".
 - Przegląd dzieje się ad-hoc: pojedyncze czaty domenowe wyciągają sobie jedno memo, nie ma jednego miejsca ani polityki.
-- **Nazwa folderu = ręczny tytuł z apki Voice Memos** (`ZENCRYPTEDTITLE`), np. „Adam 1", „testowa-15" — bezużyteczna jako podstawa czegokolwiek.
+- **Nazwa folderu = ręczny tytuł z apki Voice Memos** (`ZENCRYPTEDTITLE`), np. „Nagranie 1", „notatka-15" — bezużyteczna jako podstawa czegokolwiek.
 - **Silnik transkrypcji jest zahardkodowany na lokalny whisper** — zero eskalacji jakości; silniki cloud to osobne skrypty odpalane ręcznie.
 
 Dwa cele: (1) **przemleć backlog** z decyzją per memo; (2) **routing na przyszłość**, docelowo automatyczny, startowo z zatwierdzaniem każdego kroku.
@@ -60,7 +60,7 @@ Drabina rankowana prywatnością:
 Jeden przebieg LLM po całym transkrypcie → **opisowy tytuł**. Folder zmienia nazwę na `YYYY-MM-DD-<wygenerowany-slug>`. Oryginalny tytuł z apki zostaje w `meta.json` jako `original_title`. (Title + klasyfikacja + propozycja dyspozycji mogą być tym samym przebiegiem — szczegół implementacji.)
 
 ### 5. Routing (nowe)
-LLM czyta cały transkrypt, dopasowuje do **tabeli reguł z pliku tekstowego** (`kryterium → akcja`). Reguła `NIE pytaj` → wykonanie inline; `ZAPYTAJ` → propozycja + approve/popraw/wykonaj. Proste akcje inline (archiwum / task / krótka notatka); złożone → **przekazanie do skilla domenowego** (np. specjalista → flow intymności, projekt → `skill-korporacyjny`). Zapis `routing_note` + `status` do `meta.json` tego memo.
+LLM czyta cały transkrypt, dopasowuje do **tabeli reguł z pliku tekstowego** (`kryterium → akcja`). Reguła `NIE pytaj` → wykonanie inline; `ZAPYTAJ` → propozycja + approve/popraw/wykonaj. Proste akcje inline (archiwum / task / krótka notatka); złożone → **przekazanie do skilla domenowego** (np. sesja zdrowotna → skill zdrowotny, sprawy firmowe → skill korporacyjny). Zapis `routing_note` + `status` do `meta.json` tego memo.
 
 ## Model danych (dodatki do per-folder `meta.json`)
 
@@ -89,10 +89,10 @@ Przykład (seed — rozwijany w czasie):
 - Kryterium: przypadkowe/ambientowe nagranie bez treści (VAD potwierdza ciszę)
   Akcja: status → archived, routing_note „śmieć/przypadkowe"; ZAPYTAJ (dopóki detektor pustego nie zapracuje na zaufanie).
 
-- Kryterium: robocza rozmowa o spółkach / projekt / inwestycjach
+- Kryterium: robocza rozmowa o sprawach firmowych / finansowych
   Akcja: wyciągnij action items → Todoist; podsumowanie → work/…; ZAPYTAJ.
 
-- Kryterium: sesja zdrowotna/terapeutyczna (specjalista, trener)
+- Kryterium: sesja zdrowotna/terapeutyczna (np. wizyta u specjalisty)
   Akcja: transkrypt → wellbeing/<domena>/materialy/transkrypty + krótka refleksja; ZAPYTAJ. NIGDY nie eskaluj do clouda poza OpenAI.
 ```
 

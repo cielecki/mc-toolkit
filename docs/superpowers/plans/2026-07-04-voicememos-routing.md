@@ -316,7 +316,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "scripts"))
 import route
 
 def test_safe_slug_basic():
-    assert route.safe_slug("Adam o projekt!") == "adam-o-projekt"
+    assert route.safe_slug("Adam o projekcie!") == "adam-o-projekcie"
 
 def test_safe_slug_keeps_polish():
     assert route.safe_slug("Rozmowa z Olgą") == "rozmowa-z-olgą"
@@ -335,8 +335,8 @@ def test_rename_memo_returns_new_path(tmp_path):
     d = tmp_path / "2026-07-03-old-slug"
     d.mkdir()
     (d / "meta.json").write_text("{}")
-    new = route.rename_memo(str(d), "adam-o-projekt")
-    assert os.path.basename(new) == "2026-07-03-adam-o-projekt"
+    new = route.rename_memo(str(d), "adam-o-projekcie")
+    assert os.path.basename(new) == "2026-07-03-adam-o-projekcie"
     assert os.path.isdir(new) and not os.path.isdir(str(d))
 
 def test_rename_memo_collision_suffix(tmp_path):
@@ -434,7 +434,7 @@ After `sync.py` finishes, the skill (this session) processes every memo whose
 
 ### Step A — Auto-title (content, not name)
 For each memo, read the FULL `transcript.md` and produce a short descriptive
-Polish title (≤ 6 words, names the topic/people, e.g. "Adam — projekt i inwestycje").
+Polish title (≤ 6 words, names the topic/people, e.g. "Adam — projekt i finanse").
 Then:
 1. `python3 scripts/route.py`-backed rename: call `route.rename_memo(memo_dir, route.safe_slug(title))`.
 2. Write both titles into the (possibly moved) `meta.json`: set `generated_title` = the new title,
@@ -484,7 +484,7 @@ git commit -m "docs(voicememos): routing process + escalation/privacy reference"
 
 - [ ] **Step 1: Write the seed rules**
 
-Resolve the data dir (`python3 -c "import sys;sys.path.insert(0,'plugins/mc-toolkit/skills/voicememos/scripts');from _config import cfg;print(cfg('VOICEMEMOS_DATA','~/voicememos',expand=True))"`) and create `routing-rules.md` there with the seed rules from the design spec (empty→archive/ZAPYTAJ, spółki/projekt→Todoist+work/ZAPYTAJ, zdrowie→wellbeing transkrypty/ZAPYTAJ, rodzina→personal/rodzina/ZAPYTAJ, idea-dump→inbox/ZAPYTAJ). Every rule says `ZAPYTAJ` in v1.
+Resolve the data dir (`python3 -c "import sys;sys.path.insert(0,'plugins/mc-toolkit/skills/voicememos/scripts');from _config import cfg;print(cfg('VOICEMEMOS_DATA','~/voicememos',expand=True))"`) and create `routing-rules.md` there with the seed rules from the design spec (empty→archive/ZAPYTAJ, sprawy firmowe→Todoist+work/ZAPYTAJ, zdrowie→wellbeing transkrypty/ZAPYTAJ, rodzina→personal/rodzina/ZAPYTAJ, idea-dump→inbox/ZAPYTAJ). Every rule says `ZAPYTAJ` in v1.
 
 - [ ] **Step 2: Verify it is NOT tracked by git**
 
@@ -511,8 +511,8 @@ Append to the "Post-sync routing flow" section:
    present the proposal (category read from content, the concrete action, target paths) and
    wait for approve / edit / execute.
 4. Execute the action: simple inline (archive, create Todoist task, file a short note),
-   or hand off to the domain skill for complex work (e.g. specjalista → intimacy flow,
-   projekt → skill-korporacyjny). Record what you did.
+   or hand off to the domain skill for complex work (e.g. a health session →
+   the health-domain skill, company matters → the corporate skill). Record what you did.
 5. Call `route.write_disposition(memo_dir, "routed", "<free-text: what was done and where>")`.
    The free text is the durable "co zrobiono i dokąd" — be specific (targets, task links).
 ```
